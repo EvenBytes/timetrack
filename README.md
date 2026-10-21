@@ -4,6 +4,60 @@ Prototipo para Windows que registra en qué aplicación y ventana trabajas, lee 
 pantalla con el OCR nativo de Windows y clasifica el tiempo en tareas mediante reglas.
 Se usa desde un icono en la bandeja del sistema y un panel web local.
 
+## Resumen ejecutivo
+
+**El problema.** Imputar horas a clientes y proyectos se hace de memoria al final del día o de
+la semana. El resultado es impreciso, lleva tiempo y suele quedarse corto: los correos, los chats y
+los cambios rápidos de contexto no llegan a apuntarse.
+
+**La solución.** timetrack registra automáticamente en qué se trabaja y lo convierte en un parte
+de horas por tarea, sin que la persona tenga que apuntar nada:
+
+- sabe qué aplicación, ventana y web están en primer plano;
+- lee el texto visible en pantalla y el asunto del correo abierto;
+- unas reglas sencillas (por ejemplo, «si el título o el texto menciona X, es el cliente X»)
+  asignan cada minuto a una tarea y a un tipo de actividad (correo, reuniones, chats,
+  documentos, desarrollo…).
+
+**Qué aporta.**
+
+- Partes de horas más fiables, con el tiempo real dedicado a cada cliente o proyecto.
+- Menos tiempo administrativo: el parte se revisa y se exporta (CSV) en lugar de reconstruirse.
+- Visibilidad de *cómo* se trabaja: cuánto tiempo va a correo, reuniones o trabajo de fondo.
+- Mejora continua: lo que queda sin clasificar se convierte en una regla nueva con un clic, y el
+  cambio se aplica también a todo el histórico.
+
+**Principios.** Funciona entero en el equipo del usuario y sin servicios externos (ver
+[Privacidad y seguridad](#privacidad-y-seguridad)), no necesita instalación ni permisos de
+administrador y la persona controla en todo momento qué se registra (pausa, exclusiones, reglas).
+
+## Privacidad y seguridad
+
+timetrack **se ejecuta solo en local y no envía datos a ningún sitio**.
+
+- **Sin red.** No hay servidor, cuenta, nube ni telemetría. El código no hace conexiones
+  salientes. El OCR usa el motor integrado de Windows (`Windows.Media.Ocr`), que trabaja sin
+  conexión, y la URL de los navegadores se lee de la propia ventana con UI Automation, sin
+  extensiones.
+- **Panel solo local.** El panel web escucha únicamente en `127.0.0.1`, así que no es accesible
+  desde otros equipos de la red. Además exige la cabecera `Host` local, lo que evita ataques de
+  *DNS rebinding*, y solo acepta escrituras en JSON, lo que impide que otra web las provoque
+  desde el navegador.
+- **Sin capturas guardadas.** Las imágenes de pantalla se procesan en memoria y se descartan. Solo
+  se guarda el texto reconocido.
+- **Datos sensibles enmascarados.** Antes de guardar, el texto se limpia de emails, IBAN,
+  números largos (tarjetas, cuentas) y valores tras `password:`, `token:` o `contraseña:`.
+- **Exclusiones.** En `config.toml` se definen los procesos y títulos de ventana (por defecto, gestores de
+  contraseñas y ventanas de navegación privada; se pueden añadir otros, como la banca) en los que nunca se hace OCR ni se lee la URL.
+- **De las URL**, solo se guarda el dominio y la ruta, sin parámetros, que es donde suelen ir
+  los tokens y los datos personales.
+- **Datos bajo control del usuario.** Todo queda en un fichero SQLite (`data\timesheet.db`)
+  dentro de la carpeta de la aplicación. Se puede consultar, exportar o borrar cuando se quiera.
+  Desinstalar es borrar la carpeta.
+- **Código abierto y sin privilegios.** El código de este repositorio es todo lo que se ejecuta.
+  Funciona con los permisos del usuario, sin servicios de Windows ni elevación, y se puede pausar
+  o cerrar desde el icono de la bandeja en cualquier momento.
+
 ## Uso diario
 
 1. Ejecuta `timetrack.exe` (doble clic). Aparece un reloj azul en la bandeja del sistema y
