@@ -1,0 +1,18 @@
+# Entorno y compilación
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+
+# Datos personales: registro de actividad (con texto OCR) y log
+data/
+
+# Reglas propias de cada usuario (nombres de clientes y personas); se parte de rules.example.toml
+rules.toml
+*.tmp
+
+# Material de terceros que no se redistribuye
+manictime_binaries/
+manictime_funcionalidades.md

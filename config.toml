@@ -1,0 +1,38 @@
+[settings]
+poll_interval_s = 1        # cada cuánto se mira la ventana activa (barato)
+ocr_interval_s = 15        # mínimo entre dos OCR de la misma ventana
+ocr_after_switch_s = 2     # espera tras cambiar de ventana antes del primer OCR
+change_threshold = 3.0     # diferencia visual mínima (0-255) para repetir el OCR
+idle_threshold_s = 300     # sin teclado/ratón durante este tiempo = ausente
+ocr_language = ""          # "" = idiomas del perfil de Windows; p. ej. "es-ES" o "en-US"
+db_path = "data/timesheet.db"
+
+[privacy]
+# Ventanas en las que nunca se hace OCR (sí se registra el tiempo y el título).
+exclude_processes = ["KeePass*.exe", "1Password.exe", "Bitwarden.exe"]
+exclude_title_regex = [
+    "(?i)incognito|inprivate|navegaci[oó]n privada|private browsing",
+]
+redact = true              # enmascara emails, IBAN, números largos y "password: ..."
+max_ocr_chars = 4000
+
+[ui]
+port = 8765                    # panel en http://127.0.0.1:8765
+open_browser_on_start = false  # abrir el panel al arrancar
+
+[topic]
+# Aplicaciones en las que se saca el «Tema» de la actividad: el asunto del correo abierto,
+# que es la línea de letra más grande dentro de "area" (x0, y0, x1, y1 en fracción de la
+# ventana; 0,0 = arriba a la izquierda). Se reconocen por la URL (dominio + ruta, sin https://)
+# o por el título de la ventana; regex entre comillas simples para no duplicar las barras.
+[[topic.apps]]
+name = "Outlook"
+url = '^outlook\.(cloud\.microsoft|office\.com|office365\.com|live\.com)'
+title = '(?i)\boutlook\b'
+area = [0.30, 0.15, 1.0, 0.70]   # panel de lectura
+
+[[topic.apps]]
+name = "Gmail"
+url = '^mail\.google\.com/mail'
+title = '(?i)\bgmail\b'
+area = [0.12, 0.10, 1.0, 0.60]

@@ -1,0 +1,94 @@
+# Tipos de aplicación: una clasificación paralela a las tareas (con qué trabajas, no para quién).
+# Mismo formato que rules.toml; gana la PRIMERA que coincida y lo que no coincide es «Otros».
+# Se pueden editar aquí o desde el panel (pestaña Reglas > Tipos de aplicación).
+#
+#   task     nombre del tipo (obligatorio)
+#   process  ejecutables, admite comodines           "WINWORD.EXE", "*teams*.exe"
+#   title    regex sobre el título de la ventana
+#   topic    regex sobre el tema (asunto del correo abierto en Outlook/Gmail)
+#   url      regex sobre la dirección en los navegadores, sin https://
+#   ocr      regex sobre el texto reconocido en pantalla
+#   text     regex sobre título + tema + OCR
+#
+# Dentro de un campo basta con que coincida un patrón; entre campos se exigen todos.
+# Hay URL solo desde que se empezó a registrar; para el histórico anterior sirven los títulos.
+
+[[rules]]
+task = "IA"
+process = ["claude.exe", "chatgpt.exe"]
+
+[[rules]]
+task = "IA"
+url = ['^(chatgpt\.com|chat\.openai\.com|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com|(www\.)?perplexity\.ai|notebooklm\.google\.com|m365\.cloud\.microsoft/chat)']
+
+[[rules]]
+task = "IA"
+title = ['(?i) - (Claude|Google Gemini|Gemini|ChatGPT|Perplexity|NotebookLM)$', '(?i)^ask gemini\b']
+
+[[rules]]
+task = "Correo"
+process = ["outlook.exe", "olk.exe", "thunderbird.exe"]
+
+[[rules]]
+task = "Correo"
+url = ['^outlook\.(cloud\.microsoft|office\.com|office365\.com|live\.com)/(mail|calendar)', '^mail\.google\.com/mail', '^calendar\.google\.com']
+
+[[rules]]
+task = "Correo"
+title = ['(?i) - Outlook$', '(?i)@[\w.-]+ - [\w ]*\bmail$', '(?i)\bgmail$', '(?i)^(calendar|calendario) - ', '(?i) – (calendar|calendario) - ']
+
+[[rules]]
+task = "Reuniones"
+process = ["zoom.exe"]
+
+[[rules]]
+task = "Reuniones"
+url = ['^teams\.microsoft\.com/(light-meetings|.*meetup-join)', '^meet\.google\.com', '(^|\.)zoom\.us']
+
+[[rules]]
+task = "Reuniones"
+title = ['(?i)microsoft teams meeting|reunión de microsoft teams|^join conversation$|^meet - |\bzoom (meeting|workplace)\b']
+
+[[rules]]
+task = "Chats"
+process = ["ms-teams.exe", "teams.exe", "slack.exe", "whatsapp.exe", "telegram.exe"]
+
+[[rules]]
+task = "Chats"
+url = ['^chat\.google\.com', '^mail\.google\.com/chat', '^web\.whatsapp\.com', '^app\.slack\.com', '^teams\.(microsoft|live)\.com']
+
+[[rules]]
+task = "Chats"
+title = ['^(Chat|Activity|Actividad|Teams|Equipos) \|', '^(Chat|Microsoft Teams)$', '(?i) - chat$', '(?i)\bmessaged you\b']
+
+[[rules]]
+task = "Reuniones"
+title = ['\| Microsoft Teams$']
+
+[[rules]]
+task = "Documentos"
+process = ["winword.exe", "excel.exe", "powerpnt.exe", "onenote.exe", "acrobat.exe", "acrord32.exe", "notepad.exe"]
+
+[[rules]]
+task = "Documentos"
+url = ['^(docs|drive|sheets|slides)\.google\.com', '\.sharepoint\.com', '^onedrive\.live\.com', 'aodocs', '^(www\.)?office\.com']
+
+[[rules]]
+task = "Documentos"
+title = ['(?i) - Google (Drive|Docs|Sheets|Slides|Documentos|Hojas de cálculo|Presentaciones)$', '(?i)\.(docx?|xlsx?|pptx?|pdf)\b', '(?i) - (Word|Excel|PowerPoint)$', '(?i)\baodocs\b']
+
+[[rules]]
+task = "Desarrollo"
+process = ["code.exe", "windowsterminal.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "devenv.exe", "idea64.exe", "pycharm64.exe"]
+
+[[rules]]
+task = "Desarrollo"
+url = ['^github\.com', '^gitlab\.', '^dev\.azure\.com', '^(127\.0\.0\.1|localhost)(:|/|$)']
+
+[[rules]]
+task = "Archivos"
+process = ["explorer.exe"]
+
+[[rules]]
+task = "Web"
+process = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "vivaldi.exe", "opera.exe"]

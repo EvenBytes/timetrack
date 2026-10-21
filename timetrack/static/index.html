@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>timetrack</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --line: #e4e7ec;
+    --accent: #3b5bdb; --accent-soft: #e7ecff; --warn: #b54708; --warn-soft: #fef0c7;
+    --ok: #067647; --ok-soft: #dcfae6; --danger: #b42318; --away: #d0d5dd;
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --panel: #1a1f29; --text: #e6e9ef; --muted: #98a2b3; --line: #2b3240;
+      --accent: #7c93ff; --accent-soft: #252d4a; --warn: #fdb022; --warn-soft: #3a2c10;
+      --ok: #47cd89; --ok-soft: #12321f; --danger: #f97066; --away: #3a4150;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel);
+           border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex;
+         align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+  nav { display: flex; gap: 2px; }
+  nav button { background: none; border: 0; padding: 8px 12px; border-radius: 6px;
+               color: var(--muted); font: inherit; cursor: pointer; }
+  nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .spacer { flex: 1; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); max-width: 420px;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--away); flex: none; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+  .dot.paused { background: var(--warn); }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button.btn { border: 1px solid var(--line); background: var(--panel); color: var(--text);
+               padding: 6px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
+  button.btn:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, textarea { font: inherit; color: var(--text); background: var(--bg);
+                    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  textarea { width: 100%; resize: vertical; min-height: 34px; font-family: Consolas, monospace;
+             font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+         padding: 12px 16px; box-shadow: var(--shadow); }
+  .kpi .v { font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: var(--accent-soft); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+            margin-right: 8px; vertical-align: -1px; }
+  .meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden;
+           min-width: 80px; }
+  .meter > div { height: 100%; }
+  .tl { position: relative; margin-top: 6px; }
+  .tl-row { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px;
+            margin-bottom: 6px; }
+  .tl-track { position: relative; height: 26px; background: var(--bg); border-radius: 5px;
+              overflow: hidden; border: 1px solid var(--line); }
+  .seg { position: absolute; top: 0; bottom: 0; min-width: 1px; cursor: pointer; }
+  .seg:hover { filter: brightness(1.12); outline: 1px solid var(--text); z-index: 2; }
+  .axis { position: relative; height: 18px; margin-left: 100px; color: var(--muted);
+          font-size: 11px; }
+  .axis span { position: absolute; transform: translateX(-50%); }
+  .tip { position: fixed; z-index: 20; pointer-events: none; background: var(--text);
+         color: var(--panel); padding: 6px 8px; border-radius: 6px; font-size: 12px;
+         max-width: 360px; display: none; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+          background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
+          background: var(--panel); }
+  .rule.dirty { border-color: var(--accent); }
+  .rule-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .rule-head input { flex: 1; font-weight: 600; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .fields label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  .preview { margin-top: 10px; font-size: 13px; }
+  .preview table td { padding: 4px 6px; }
+  .idx { color: var(--muted); font-variant-numeric: tabular-nums; width: 24px; }
+  .msg { padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; display: none; }
+  .msg.err { display: block; background: #fee4e2; color: #912018; }
+  .msg.ok { display: block; background: var(--ok-soft); color: var(--ok); }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
+           align-items: center; justify-content: center; z-index: 30; padding: 16px; }
+  .modal.open { display: flex; }
+  .modal .card { width: min(900px, 100%); max-height: 85vh; overflow: auto; margin: 0; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 10px;
+        border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; max-height: 320px;
+        overflow: auto; }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .hidden { display: none !important; }
+  .ellipsis { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">timetrack</div>
+    <nav id="tabs">
+      <button data-tab="day" class="active">Día</button>
+      <button data-tab="week">Semana</button>
+      <button data-tab="pending">Sin clasificar</button>
+      <button data-tab="rules">Reglas</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="status"><span class="dot" id="st-dot"></span><span id="st-text">…</span></div>
+    <button class="btn" id="st-toggle">Pausar</button>
+  </div>
+</header>
+
+<main>
+  <div class="row card" style="padding:10px 16px">
+    <button class="btn" id="prev" title="Día anterior">◀</button>
+    <input type="date" id="date">
+    <button class="btn" id="next" title="Día siguiente">▶</button>
+    <button class="btn" id="today">Hoy</button>
+    <span class="spacer"></span>
+    <a id="csv" class="btn" style="text-decoration:none;color:inherit;border:1px solid var(--line);padding:6px 12px;border-radius:6px">Exportar CSV</a>
+  </div>
+
+  <!-- DÍA -->
+  <section id="tab-day">
+    <div class="kpis" style="margin-bottom:16px">
+      <div class="kpi"><div class="v" id="k-worked">–</div><div class="l">Tiempo trabajado</div></div>
+      <div class="kpi"><div class="v" id="k-tasks">–</div><div class="l">Tareas</div></div>
+      <div class="kpi"><div class="v" id="k-uncl">–</div><div class="l">Sin clasificar</div></div>
+      <div class="kpi"><div class="v" id="k-span">–</div><div class="l">Primera y última actividad</div></div>
+    </div>
+    <div class="card">
+      <h2>Línea temporal</h2>
+      <div id="timeline"></div>
+    </div>
+    <div class="card">
+      <h2>Tiempo por tarea</h2>
+      <div id="totals"></div>
+    </div>
+    <div class="card">
+      <h2>Tiempo por tipo de aplicación</h2>
+      <div id="cats"></div>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Actividades</h2>
+        <span class="muted">Pulsa una fila para ver el texto reconocido</span></div>
+      <div id="acts"></div>
+    </div>
+  </section>
+
+  <!-- SEMANA -->
+  <section id="tab-week" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <h2 id="week-title" style="margin:0">Semana</h2>
+        <span class="spacer"></span>
+        <span class="muted">Ver por:</span>
+        <select id="week-by" class="btn">
+          <option value="task">Tarea</option><option value="category">Tipo de aplicación</option>
+        </select>
+      </div>
+      <div id="week"></div>
+    </div>
+  </section>
+
+  <!-- SIN CLASIFICAR -->
+  <section id="tab-pending" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <h2 style="margin:0">Sin clasificar</h2>
+        <span class="muted">Período:</span>
+        <select id="pend-days" class="btn">
+          <option value="1">el día</option><option value="7" selected>7 días</option>
+          <option value="30">30 días</option>
+        </select>
+      </div>
+      <div id="pending"></div>
+    </div>
+  </section>
+
+  <!-- REGLAS -->
+  <section id="tab-rules" class="hidden">
+    <div id="rules-msg" class="msg"></div>
+    <div class="card row" style="padding:10px 16px">
+      <select id="rules-kind" class="btn" title="Qué reglas editar">
+        <option value="tasks">Tareas</option><option value="categories">Tipos de aplicación</option>
+      </select>
+      <span class="muted">Gana la primera regla que coincida. Dentro de un campo, un patrón por
+        línea (basta con uno); entre campos se exigen todos.</span>
+      <span class="spacer"></span>
+      <button class="btn" id="rule-add">+ Nueva regla</button>
+      <button class="btn" id="rules-reload">Descartar cambios</button>
+      <button class="btn primary" id="rules-save" disabled>Guardar</button>
+    </div>
+    <div id="rules"></div>
+    <p class="muted" id="rules-path"></p>
+  </section>
+</main>
+
+<div class="tip" id="tip"></div>
+<div class="modal" id="modal"><div class="card" id="modal-body"></div></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const UNCL = "Sin clasificar", AWAY = "Ausente";
+const FIELDS = [
+  ["process", "Proceso (ejecutable, admite *)", "Code.exe"],
+  ["title", "Título (regex)", "(?i)proyecto x"],
+  ["topic", "Tema: asunto del correo en Outlook/Gmail (regex)", "(?i)migration"],
+  ["url", "URL en navegadores, sin https:// (regex)", "^chat\\.google\\.com"],
+  ["ocr", "Texto en pantalla, OCR (regex)", "\\bPROJ-\\d+\\b"],
+  ["text", "Título, tema u OCR (regex)", "(?i)aodocs"],
+];
+const OTHER = "Otros";   // tipo de aplicación sin regla
+const state = { date: today(), tab: "day", kind: "tasks", rules: [], dirty: false, status: null };
+
+// ---------- utilidades ----------
+function today() { const d = new Date(); return iso(d); }
+function iso(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function addDays(s, n) { const d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n); return iso(d); }
+function hm(sec) {
+  if (sec < 60) return `${Math.round(sec)} s`;
+  const m = Math.round(sec / 60), h = Math.floor(m / 60), r = m % 60;
+  if (!h) return `${m} min`;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+function clock(ts) { return new Date(ts * 1000).toLocaleTimeString("es-ES", {hour: "2-digit", minute: "2-digit"}); }
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(k));
+  return e;
+}
+function color(task) {
+  if (task === AWAY) return "var(--away)";
+  if (task === UNCL) return "#f79009";
+  if (task === OTHER) return "#98a2b3";
+  let h = 0; for (const c of task) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `hsl(${h % 360} 62% 52%)`;
+}
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+const post = (path, body = {}) => api(path, { method: "POST", body: JSON.stringify(body) });
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+const tip = $("#tip");
+function showTip(ev, lines) { tip.replaceChildren(...lines.map((l, i) => el("div", i ? {} : {style: "font-weight:600"}, l))); tip.style.display = "block"; moveTip(ev); }
+function moveTip(ev) { tip.style.left = Math.min(ev.clientX + 14, innerWidth - 380) + "px"; tip.style.top = (ev.clientY + 14) + "px"; }
+function hideTip() { tip.style.display = "none"; }
+
+// ---------- estado del tracker ----------
+async function refreshStatus() {
+  try {
+    const s = state.status = await api("/api/status");
+    $("#st-dot").className = "dot" + (s.paused ? " paused" : s.running ? " on" : "");
+    $("#st-text").textContent = s.error ? `Error: ${s.error}`
+      : !s.running ? "Seguimiento detenido"
+      : s.paused ? "En pausa"
+      : `${s.process || "–"} · ${s.task || ""}`;
+    $("#st-text").title = s.title || "";
+    $("#st-toggle").textContent = s.paused ? "Reanudar" : "Pausar";
+    $("#st-toggle").disabled = !s.running;
+  } catch { $("#st-text").textContent = "Sin conexión con timetrack"; $("#st-dot").className = "dot"; }
+}
+$("#st-toggle").onclick = async () => {
+  await post(state.status && state.status.paused ? "/api/resume" : "/api/pause");
+  refreshStatus();
+};
+
+// ---------- navegación ----------
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => switchTab(b.dataset.tab);
+function switchTab(tab, reload = true) {
+  if (state.tab === "rules" && tab !== "rules" && state.dirty && !confirm("Hay cambios en las reglas sin guardar. ¿Salir igualmente?")) return;
+  state.tab = tab;
+  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("active", b.dataset.tab === tab);
+  for (const s of document.querySelectorAll("main > section")) s.classList.toggle("hidden", s.id !== "tab-" + tab);
+  if (reload) load();
+}
+function setDate(d) { state.date = d; $("#date").value = d; load(); }
+$("#date").onchange = e => setDate(e.target.value || today());
+$("#prev").onclick = () => setDate(addDays(state.date, state.tab === "week" ? -7 : -1));
+$("#next").onclick = () => setDate(addDays(state.date, state.tab === "week" ? 7 : 1));
+$("#today").onclick = () => setDate(today());
+$("#pend-days").onchange = () => load();
+$("#week-by").onchange = () => load();
+
+function load() {
+  $("#csv").href = state.tab === "week"
+    ? `/api/export.csv?from=${weekStart(state.date)}&to=${addDays(weekStart(state.date), 6)}`
+    : `/api/export.csv?from=${state.date}`;
+  ({ day: loadDay, week: loadWeek, pending: loadPending, rules: loadRules })[state.tab]().catch(showError);
+}
+function weekStart(d) { const x = new Date(d + "T12:00:00"); return addDays(d, -((x.getDay() + 6) % 7)); }
+function showError(e) { console.error(e); alert(e.message); }
+
+// ---------- día ----------
+async function loadDay() {
+  const d = await api(`/api/day?date=${state.date}`);
+  const work = d.activities.filter(a => a.task !== AWAY);
+  const uncl = d.totals.find(t => t.task === UNCL);
+  $("#k-worked").textContent = hm(d.worked);
+  $("#k-tasks").textContent = d.totals.filter(t => t.task !== UNCL).length;
+  $("#k-uncl").textContent = d.worked ? `${Math.round(100 * (uncl ? uncl.seconds : 0) / d.worked)} %` : "–";
+  $("#k-span").textContent = work.length ? `${clock(work[0].start)} – ${clock(work[work.length - 1].end)}` : "–";
+  renderTimeline(d);
+  renderTotals(d);
+  renderCategories(d);
+  renderActivities(d);
+}
+
+function renderTimeline(d) {
+  const box = $("#timeline");
+  if (!d.activities.length) return box.replaceChildren(el("div", {class: "empty"}, "No hay actividad registrada este día."));
+  const dayStart = new Date(d.date + "T00:00:00").getTime() / 1000;
+  const first = Math.min(...d.activities.map(a => a.start)), last = Math.max(...d.activities.map(a => a.end));
+  const h0 = Math.max(0, Math.min(8, Math.floor((first - dayStart) / 3600)));
+  const h1 = Math.min(24, Math.max(18, Math.ceil((last - dayStart) / 3600)));
+  const t0 = dayStart + h0 * 3600, span = (h1 - h0) * 3600;
+  const pos = (s, e) => `left:${100 * (s - t0) / span}%;width:${Math.max(0.05, 100 * (e - s) / span)}%`;
+
+  const blockTrack = blocks => {
+    const track = el("div", {class: "tl-track"});
+    for (const b of blocks) {
+      const apps = b.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ");
+      track.append(el("div", {class: "seg", style: `${pos(b.start, b.end)};background:${color(b.task)}`,
+        onmousemove: ev => showTip(ev, [b.task, `${clock(b.start)} – ${clock(b.end)} (${hm(b.end - b.start)})`, apps]),
+        onmouseleave: hideTip}));
+    }
+    return track;
+  };
+  const appTrack = el("div", {class: "tl-track"});
+  for (const a of d.activities) {
+    if (a.task === AWAY) continue;
+    appTrack.append(el("div", {class: "seg", style: `${pos(a.start, a.end)};background:${color(a.app)}`,
+      onmousemove: ev => showTip(ev, [a.app, a.title || "(sin título)", ...(a.topic ? [`Tema: ${a.topic}`] : []), ...(a.url ? [a.url] : []), `${clock(a.start)} – ${clock(a.end)} · ${a.task}`]),
+      onmouseleave: hideTip, onclick: () => openActivity(a)}));
+  }
+  const axis = el("div", {class: "axis"});
+  for (let h = h0; h <= h1; h += (h1 - h0 > 12 ? 2 : 1))
+    axis.append(el("span", {style: `left:${100 * (h - h0) / (h1 - h0)}%`}, `${h}:00`));
+  box.replaceChildren(
+    el("div", {class: "tl-row"}, el("span", {class: "muted"}, "Tareas"), blockTrack(d.blocks)),
+    el("div", {class: "tl-row"}, el("span", {class: "muted"}, "Tipos"), blockTrack(d.category_blocks)),
+    el("div", {class: "tl-row"}, el("span", {class: "muted"}, "Aplicaciones"), appTrack),
+    axis);
+}
+
+function renderTotals(d) {
+  const box = $("#totals");
+  if (!d.totals.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin datos."));
+  const max = Math.max(...d.totals.map(t => t.seconds));
+  box.replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, "Tarea"), el("th", {class: "num"}, "Tiempo"),
+      el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Tipos de aplicación"), el("th", {}, "Aplicaciones principales"))),
+    el("tbody", {}, d.totals.map(t => el("tr", {},
+      el("td", {}, el("span", {class: "swatch", style: `background:${color(t.task)}`}), t.task),
+      el("td", {class: "num"}, hm(t.seconds)),
+      el("td", {class: "num"}, d.worked ? `${(100 * t.seconds / d.worked).toFixed(0)} %` : ""),
+      el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * t.seconds / max}%;background:${color(t.task)}`}))),
+      el("td", {}, stacked(t.categories, t.seconds)),
+      el("td", {class: "muted"}, t.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ")))))));
+}
+
+// Barra apilada con el reparto (p. ej. tipos dentro de una tarea), con leyenda al pasar el ratón.
+function stacked(parts, total) {
+  const bar = el("div", {class: "meter", style: "display:flex;min-width:140px"});
+  for (const [name, s] of parts)
+    bar.append(el("div", {style: `width:${100 * s / total}%;background:${color(name)}`,
+      onmousemove: ev => showTip(ev, [name, `${hm(s)} · ${(100 * s / total).toFixed(0)} %`]), onmouseleave: hideTip}));
+  return el("div", {}, bar, el("div", {class: "muted", style: "font-size:12px;margin-top:3px"},
+    parts.slice(0, 3).map(([n, s]) => `${n} ${hm(s)}`).join(" · ")));
+}
+
+function renderCategories(d) {
+  const box = $("#cats");
+  if (!d.categories.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin datos."));
+  const max = Math.max(...d.categories.map(c => c.seconds));
+  box.replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, "Tipo"), el("th", {class: "num"}, "Tiempo"),
+      el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Reparto por tarea"), el("th", {}, "Aplicaciones principales"))),
+    el("tbody", {}, d.categories.map(c => el("tr", {},
+      el("td", {}, el("span", {class: "swatch", style: `background:${color(c.category)}`}), c.category),
+      el("td", {class: "num"}, hm(c.seconds)),
+      el("td", {class: "num"}, d.worked ? `${(100 * c.seconds / d.worked).toFixed(0)} %` : ""),
+      el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * c.seconds / max}%;background:${color(c.category)}`}))),
+      el("td", {}, stacked(c.tasks, c.seconds)),
+      el("td", {class: "muted"}, c.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ")))))));
+}
+
+function renderActivities(d) {
+  const box = $("#acts");
+  const rows = d.activities.filter(a => a.task !== AWAY && a.end - a.start >= 10).reverse();
+  if (!rows.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin actividades."));
+  box.replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, "Hora"), el("th", {class: "num"}, "Duración"),
+      el("th", {}, "Aplicación"), el("th", {}, "Título"), el("th", {}, "Tipo"), el("th", {}, "Tarea"))),
+    el("tbody", {}, rows.map(a => el("tr", {class: "click", onclick: () => openActivity(a)},
+      el("td", {class: "num"}, clock(a.start)),
+      el("td", {class: "num"}, hm(a.end - a.start)),
+      el("td", {title: a.url || a.process}, a.app),
+      el("td", {class: "ellipsis", title: a.topic ? `${a.title}\nTema: ${a.topic}` : a.title},
+        a.topic ? [el("b", {}, a.topic), el("span", {class: "muted"}, `  · ${a.title}`)] : (a.title || "(sin título)"),
+        a.has_ocr ? "" : el("span", {class: "muted"}, "  · sin OCR")),
+      el("td", {}, el("span", {class: "swatch", style: `background:${color(a.category)}`}), a.category),
+      el("td", {}, el("span", {class: "pill" + (a.unclassified ? " warn" : "")}, a.task)))))));
+}
+
+async function openActivity(a) {
+  const d = await api(`/api/activity?id=${a.id}`);
+  $("#modal-body").replaceChildren(
+    el("div", {class: "row", style: "margin-bottom:8px"},
+      el("h2", {style: "margin:0"}, a.app), el("span", {class: "pill" + (a.unclassified ? " warn" : "")}, a.task),
+      el("span", {class: "pill"}, a.category),
+      el("span", {class: "spacer"}),
+      el("button", {class: "btn", onclick: () => { closeModal(); newRuleFrom(a.title, a.topic); }}, "Crear regla"),
+      el("button", {class: "btn", onclick: closeModal}, "Cerrar")),
+    el("p", {}, a.title || "(sin título)"),
+    a.url ? el("p", {}, el("span", {class: "muted"}, "URL: "), a.url) : "",
+    a.topic ? el("p", {}, el("span", {class: "muted"}, "Tema: "), el("b", {}, a.topic)) : "",
+    el("p", {class: "muted"}, `${clock(a.start)} – ${clock(a.end)} · ${hm(a.end - a.start)}`),
+    d.samples.length ? d.samples.map(s => [el("div", {class: "muted"}, `OCR ${clock(s.ts)}`), el("pre", {}, s.text)])
+                     : el("div", {class: "empty"}, "No hay texto reconocido para esta actividad."));
+  $("#modal").classList.add("open");
+}
+function closeModal() { $("#modal").classList.remove("open"); }
+$("#modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+// ---------- semana ----------
+async function loadWeek() {
+  const w = await api(`/api/week?date=${state.date}&by=${$("#week-by").value}`);
+  const names = w.days.map(d => new Date(d + "T12:00:00").toLocaleDateString("es-ES", {weekday: "short", day: "numeric"}));
+  $("#week-title").textContent = `Semana del ${new Date(w.days[0] + "T12:00:00").toLocaleDateString("es-ES", {day: "numeric", month: "long"})}`;
+  if (!w.tasks.length) return $("#week").replaceChildren(el("div", {class: "empty"}, "Sin datos esta semana."));
+  const grand = w.totals.reduce((a, b) => a + b, 0);
+  $("#week").replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, $("#week-by").value === "category" ? "Tipo" : "Tarea"), names.map((n, i) =>
+      el("th", {class: "num", style: "cursor:pointer", title: "Ver el día", onclick: () => { state.tab = "day"; switchTab("day"); setDate(w.days[i]); }}, n)),
+      el("th", {class: "num"}, "Total"))),
+    el("tbody", {}, w.tasks.map(t => el("tr", {},
+      el("td", {}, el("span", {class: "swatch", style: `background:${color(t.task)}`}), t.task),
+      t.days.map(s => el("td", {class: "num" + (s ? "" : " muted")}, s ? hm(s) : "·")),
+      el("td", {class: "num", style: "font-weight:600"}, hm(t.total)))),
+      el("tr", {}, el("td", {style: "font-weight:600"}, "Total"),
+        w.totals.map(s => el("td", {class: "num", style: "font-weight:600"}, s ? hm(s) : "·")),
+        el("td", {class: "num", style: "font-weight:700"}, hm(grand))))));
+}
+
+// ---------- sin clasificar ----------
+async function loadPending() {
+  const p = await api(`/api/unclassified?date=${state.date}&days=${$("#pend-days").value}`);
+  if (!p.groups.length) return $("#pending").replaceChildren(el("div", {class: "empty"}, "Todo está clasificado. 🎉"));
+  $("#pending").replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {class: "num"}, "Tiempo"), el("th", {}, "Aplicación"), el("th", {}, "Título"), el("th", {}, ""))),
+    el("tbody", {}, p.groups.map(g => el("tr", {},
+      el("td", {class: "num"}, hm(g.seconds)), el("td", {}, g.process),
+      el("td", {class: "ellipsis", title: g.topic ? `${g.title}\nTema: ${g.topic}` : g.title},
+        g.topic ? [el("b", {}, g.topic), el("span", {class: "muted"}, `  · ${g.title}`)] : (g.title || "(sin título)")),
+      el("td", {}, el("button", {class: "btn", onclick: () => newRuleFrom(g.title, g.topic)}, "Crear regla")))))));
+}
+
+// ---------- reglas ----------
+async function loadRules(force = false) {
+  if (state.dirty && !force) return renderRules();
+  const r = await api(`/api/rules?kind=${state.kind}`);
+  $("#rules-kind").value = state.kind;
+  state.rules = r.rules.map(x => ({...x}));
+  $("#rules-path").textContent = `Fichero: ${r.path}`;
+  setDirty(false);
+  renderRules();
+}
+function setDirty(v) { state.dirty = v; $("#rules-save").disabled = !v; }
+function msg(text, ok) { const m = $("#rules-msg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "err"); if (ok) setTimeout(() => m.className = "msg", 3000); }
+
+function renderRules() {
+  const box = $("#rules");
+  if (!state.rules.length) return box.replaceChildren(el("div", {class: "card empty"}, "No hay reglas. Crea la primera con «+ Nueva regla» o desde «Sin clasificar»."));
+  box.replaceChildren(...state.rules.map((r, i) => ruleCard(r, i)));
+}
+
+function ruleCard(r, i) {
+  const card = el("div", {class: "rule" + (r._dirty ? " dirty" : "")});
+  const touch = () => { r._dirty = true; card.classList.add("dirty"); setDirty(true); };
+  const preview = el("div", {class: "preview"});
+  const move = (delta) => { const j = i + delta; if (j < 0 || j >= state.rules.length) return;
+    [state.rules[i], state.rules[j]] = [state.rules[j], state.rules[i]]; setDirty(true); renderRules(); };
+  card.append(
+    el("div", {class: "rule-head"},
+      el("span", {class: "idx"}, `${i + 1}.`),
+      el("span", {class: "swatch", style: `background:${color(r.task || "")}`}),
+      el("input", {value: r.task || "", placeholder: state.kind === "categories" ? "Tipo de aplicación (Correo, Chats…)" : "Nombre de la tarea", oninput: e => { r.task = e.target.value; touch(); }}),
+      el("button", {class: "btn", title: "Subir prioridad", onclick: () => move(-1)}, "↑"),
+      el("button", {class: "btn", title: "Bajar prioridad", onclick: () => move(1)}, "↓"),
+      el("button", {class: "btn", onclick: () => runPreview(r, preview)}, "Vista previa"),
+      el("button", {class: "btn danger", onclick: () => { if (confirm(`¿Eliminar la regla «${r.task}»?`)) { state.rules.splice(i, 1); setDirty(true); renderRules(); } }}, "Eliminar")),
+    el("div", {class: "fields"}, FIELDS.map(([key, label, ph]) => el("div", {},
+      el("label", {}, label),
+      el("textarea", {rows: Math.max(1, (r[key] || []).length), placeholder: ph,
+        oninput: e => { r[key] = e.target.value.split("\n"); touch(); }}, (r[key] || []).join("\n"))))),
+    preview);
+  if (r._autopreview) { delete r._autopreview; runPreview(r, preview); }
+  return card;
+}
+
+async function runPreview(r, box) {
+  box.replaceChildren(el("span", {class: "muted"}, "Calculando…"));
+  try {
+    const p = await post("/api/rules/preview", {rule: stripRule(r), kind: state.kind, date: state.date, days: 7});
+    if (!p.examples.length) return box.replaceChildren(el("span", {class: "muted"}, "No coincide con nada en los últimos 7 días."));
+    box.replaceChildren(
+      el("div", {style: "margin-bottom:4px"}, el("b", {}, hm(p.seconds)), " en los últimos 7 días (evaluada sola; si hay reglas antes que coincidan, ganan ellas):"),
+      el("table", {}, el("tbody", {}, p.examples.slice(0, 10).map(x => el("tr", {},
+        el("td", {class: "num"}, hm(x.seconds)), el("td", {}, x.process),
+        el("td", {class: "ellipsis", title: x.topic ? `${x.title}\nTema: ${x.topic}` : x.title},
+          x.topic ? [el("b", {}, x.topic), el("span", {class: "muted"}, `  · ${x.title}`)] : (x.title || "(sin título)")),
+        el("td", {}, el("span", {class: "pill" + (x.current_task === UNCL ? " warn" : "")}, `ahora: ${x.current_task}`)))))));
+  } catch (e) { box.replaceChildren(el("span", {style: "color:var(--danger)"}, e.message)); }
+}
+
+function stripRule(r) {
+  const o = {task: (r.task || "").trim()};
+  for (const [k] of FIELDS) { const v = (r[k] || []).map(s => s.trim()).filter(Boolean); if (v.length) o[k] = v; }
+  return o;
+}
+
+function newRuleFrom(title, topic) {
+  // Con tema (correo), la regla va sobre el asunto; si no, sobre la primera parte del título.
+  const words = (title || "").split(/\s+[-–|·]\s+/)[0].trim();
+  const rule = {task: "", _dirty: true, _autopreview: true};
+  if (topic) rule.topic = ["(?i)" + escapeRegex(topic)];
+  else if (words) rule.title = ["(?i)" + escapeRegex(words)];
+  // Las reglas que se crean desde una actividad son de tareas.
+  if (state.kind !== "tasks" && state.dirty && !confirm("Hay cambios sin guardar en los tipos de aplicación. ¿Descartarlos?")) return;
+  const reload = state.kind !== "tasks" || !state.dirty;
+  state.kind = "tasks";
+  switchTab("rules", false);   // sin recarga automática: pisaría la regla recién insertada
+  const insert = () => { state.rules.unshift(rule); setDirty(true); renderRules(); $("#rules input").focus(); };
+  if (reload) loadRules(true).then(insert).catch(showError); else { renderRules(); insert(); }
+}
+
+$("#rules-kind").onchange = e => {
+  if (state.dirty && !confirm("Hay cambios sin guardar. ¿Descartarlos?")) { e.target.value = state.kind; return; }
+  state.kind = e.target.value;
+  loadRules(true).catch(showError);
+};
+
+$("#rule-add").onclick = () => { state.rules.unshift({task: "", _dirty: true}); setDirty(true); renderRules(); $("#rules input").focus(); };
+$("#rules-reload").onclick = () => { if (!state.dirty || confirm("¿Descartar los cambios sin guardar?")) loadRules(true).catch(showError); };
+$("#rules-save").onclick = async () => {
+  try {
+    await api("/api/rules", {method: "PUT", body: JSON.stringify({kind: state.kind, rules: state.rules.map(stripRule)})});
+    await loadRules(true);
+    msg(state.kind === "categories" ? "Tipos guardados. Se aplican a todo el histórico."
+                                    : "Reglas guardadas. Se aplican ya al registro y a todo el histórico.", true);
+  } catch (e) { msg(e.message, false); }
+};
+window.addEventListener("beforeunload", e => { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------- arranque ----------
+$("#date").value = state.date;
+const hash = location.hash.slice(1);
+if (["day", "week", "pending", "rules"].includes(hash)) switchTab(hash); else load();
+refreshStatus();
+setInterval(refreshStatus, 5000);
+setInterval(() => { if (state.tab === "day" && state.date === today() && !document.hidden) loadDay().catch(() => {}); }, 60000);
+</script>
+</body>
+</html>

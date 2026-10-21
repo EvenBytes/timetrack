@@ -1,0 +1,36 @@
+# Reglas de clasificación. Gana la PRIMERA que coincida, así que pon las específicas arriba.
+# Se pueden editar aquí o desde el panel (http://127.0.0.1:<puerto>, pestaña Reglas).
+#
+#   task     nombre de la tarea (obligatorio)
+#   process  ejecutables, admite comodines           "Code.exe", "*teams*.exe"
+#   title    regex sobre el título de la ventana
+#   topic    regex sobre el tema (asunto del correo abierto en Outlook/Gmail)
+#   url      regex sobre la dirección en los navegadores, sin https://  "drive\\.google\\.com"
+#   ocr      regex sobre el texto reconocido en pantalla
+#   text     regex sobre título + tema + OCR
+#
+# Dentro de un campo basta con que coincida un patrón; entre campos se exigen todos.
+# Usa (?i) para no distinguir mayúsculas.
+#
+# Este fichero es un ejemplo: build_exe.ps1 lo copia como rules.toml si no existe.
+# rules.toml no se sube al repositorio (lleva nombres de clientes).
+
+[[rules]]
+task = "I+D interno"
+title = ["(?i)\\btimetrack\\b"]
+
+[[rules]]
+task = "Cliente A"
+title = ["(?i)\\bcliente a\\b|\\bproyecto alfa\\b"]
+
+[[rules]]
+task = "Cliente B"
+title = ["(?i)\\bcliente b\\b"]
+
+[[rules]]
+task = "Cliente B"
+topic = ["(?i)\\bmigraci[oó]n alfa\\b"]   # correos cuyo asunto lo menciona
+
+[[rules]]
+task = "Cliente B"
+ocr = ["(?i)cliente b s\\.?a\\.?"]
