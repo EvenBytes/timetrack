@@ -80,9 +80,10 @@ process = ["winword.exe", "excel.exe", "powerpnt.exe", "onenote.exe", "acrobat.e
 task = "Documentos"
 url = ['^(docs|drive|sheets|slides)\.google\.com', '\.sharepoint\.com', '^onedrive\.live\.com', 'aodocs', '^(www\.)?office\.com']
 
+# En VS Code, una nota sin guardar («Untitled-4») o un .md/.txt es redactar, no programar.
 [[rules]]
 task = "Documentos"
-title = ['(?i) - Google (Drive|Docs|Sheets|Slides|Documentos|Hojas de cálculo|Presentaciones)$', '(?i)\.(docx?|xlsx?|pptx?|pdf)\b', '(?i) - (Word|Excel|PowerPoint)$', '(?i)\baodocs\b']
+title = ['(?i) - Google (Drive|Docs|Sheets|Slides|Documentos|Hojas de cálculo|Presentaciones)$', '(?i)\.(docx?|xlsx?|pptx?|pdf)\b', '(?i) - (Word|Excel|PowerPoint)$', '(?i)\baodocs\b', '(?i)\b(Untitled|Sin título)-\d+\b.* - Visual Studio Code$', '(?i)\.(md|txt)\b.* - Visual Studio Code$']
 
 [[rules]]
 task = "Desarrollo"
