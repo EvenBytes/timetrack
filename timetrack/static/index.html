@@ -81,7 +81,7 @@
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
          padding: 12px 16px; box-shadow: var(--shadow); }
-  .kpi .v { font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+  .kpi .v { font-size: 24px; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
   .kpi .l { color: var(--muted); font-size: 12px; }
   .muted { color: var(--muted); }
   table { width: 100%; border-collapse: collapse; }
@@ -199,6 +199,8 @@
     <div class="kpis" style="margin-bottom:16px">
       <div class="kpi"><div class="v" id="k-worked">–</div><div class="l">Tiempo trabajado</div></div>
       <div class="kpi"><div class="v" id="k-bill">–</div><div class="l">Imputable</div></div>
+      <div class="kpi" title="Sin teclado ni ratón 5 min o más, o sesión bloqueada, entre la primera y la última actividad del día">
+        <div class="v" id="k-away">–</div><div class="l">Ausente</div></div>
       <div class="kpi"><div class="v" id="k-tasks">–</div><div class="l">Tareas</div></div>
       <div class="kpi"><div class="v" id="k-uncl">–</div><div class="l">Sin clasificar</div></div>
       <div class="kpi"><div class="v" id="k-span">–</div><div class="l">Primera y última actividad</div></div>
@@ -256,7 +258,7 @@
         <span class="spacer"></span>
         <label class="inline">Período
           <select id="pend-days">
-            <option value="1">El día</option><option value="7" selected>7 días</option>
+            <option value="1" selected>El día</option><option value="7">7 días</option>
             <option value="30">30 días</option>
           </select></label>
       </div>
@@ -464,15 +466,32 @@ function weekStart(d) { const x = new Date(d + "T12:00:00"); return addDays(d, -
 function showError(e) { console.error(e); toast(e.message); }
 
 // ---------- día ----------
+// Valor de un KPI; el dato secundario va en la etiqueta («Imputable · 71 %») para que el valor
+// quepa siempre en una línea.
+function kpi(sel, main, sub = "") {
+  const v = $(sel), l = v.nextElementSibling;
+  l.dataset.base ??= l.textContent;
+  v.textContent = main;
+  l.textContent = sub ? `${l.dataset.base} · ${sub}` : l.dataset.base;
+}
+
 async function loadDay() {
   const d = await api(`/api/day?date=${state.date}`);
   const work = d.activities.filter(a => a.task !== AWAY);
   const uncl = d.totals.find(t => t.task === UNCL);
   $("#k-worked").textContent = hm(d.worked);
-  $("#k-bill").textContent = d.worked ? `${hm(d.billable)} · ${Math.round(100 * d.billable / d.worked)} %` : "–";
+  kpi("#k-bill", d.worked ? hm(d.billable) : "–", d.worked ? `${Math.round(100 * d.billable / d.worked)} %` : "");
   $("#k-tasks").textContent = d.totals.filter(t => t.task !== UNCL).length;
   $("#k-uncl").textContent = d.worked ? `${Math.round(100 * (uncl ? uncl.seconds : 0) / d.worked)} %` : "–";
   $("#k-span").textContent = work.length ? `${clock(work[0].start)} – ${clock(work[work.length - 1].end)}` : "–";
+  // Ausencias dentro de la jornada: la de antes de empezar y la de después de terminar no cuentan.
+  if (work.length) {
+    const from = work[0].start, to = work[work.length - 1].end;
+    const away = d.activities.filter(a => a.task === AWAY)
+      .reduce((sum, a) => sum + Math.max(0, Math.min(a.end, to) - Math.max(a.start, from)), 0);
+    const pauses = d.activities.filter(a => a.task === AWAY && a.start >= from && a.end <= to && a.end - a.start >= 60).length;
+    kpi("#k-away", hm(away), pauses ? `${pauses} ${pauses === 1 ? "vez" : "veces"}` : "");
+  } else kpi("#k-away", "–");
   renderTimeline(d);
   renderClients(d);
   renderTotals(d);
