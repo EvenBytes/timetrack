@@ -122,12 +122,12 @@
                   flex: none; }
   .chip > span { overflow: hidden; text-overflow: ellipsis; }
   .cdot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
-  .proj-form { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr auto auto auto; gap: 12px;
+  .proj-form { display: grid; grid-template-columns: 1fr 1.4fr 1.4fr auto auto auto; gap: 12px;
                align-items: end; }
   @media (max-width: 900px) { .proj-form { grid-template-columns: 1fr; } }
   td input.kw, td input.client { width: 100%; }
   table.fixed { table-layout: fixed; }
-  table.fixed td:first-child .chip { max-width: 100%; }
+  table.fixed td .chip { max-width: 100%; }
   td > input, td > .btn { vertical-align: middle; }
   .actions { display: inline-flex; gap: 6px; }
   .rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
@@ -268,8 +268,8 @@
     <div class="card">
       <div class="card-head"><h2>Nuevo proyecto</h2></div>
       <div class="proj-form">
-        <label class="field">Proyecto<input id="pf-name"></label>
         <label class="field">Cliente<input id="pf-client" list="client-list"></label>
+        <label class="field">Proyecto<input id="pf-name"></label>
         <label class="field">Palabras clave, separadas por comas<input id="pf-kw"></label>
         <label class="check"><input type="checkbox" id="pf-bill" checked>Imputable</label>
         <label class="check"><input type="checkbox" id="pf-gen" checked>Crear regla</label>
@@ -532,11 +532,11 @@ function renderTotals(d) {
   if (!d.totals.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin datos."));
   const max = Math.max(...d.totals.map(t => t.seconds));
   box.replaceChildren(el("table", {},
-    el("thead", {}, el("tr", {}, el("th", {}, "Tarea"), el("th", {}, "Cliente"), el("th", {class: "num"}, "Tiempo"),
+    el("thead", {}, el("tr", {}, el("th", {}, "Cliente"), el("th", {}, "Tarea"), el("th", {class: "num"}, "Tiempo"),
       el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Tipos de aplicación"), el("th", {}, "Aplicaciones principales"))),
     el("tbody", {}, d.totals.map(t => el("tr", {},
-      el("td", {}, chip(t.task)),
-      el("td", {style: "white-space:nowrap"}, t.client ? chip(t.client) : "",
+      el("td", {}, t.client ? chip(t.client) : ""),
+      el("td", {style: "white-space:nowrap"}, chip(t.task),
         t.client && !t.billable ? el("span", {class: "badge", style: "margin-left:6px"}, "No imputable") : ""),
       el("td", {class: "num"}, hm(t.seconds)),
       el("td", {class: "num"}, d.worked ? `${(100 * t.seconds / d.worked).toFixed(0)} %` : ""),
@@ -711,13 +711,13 @@ function renderProjects() {
         }}, "Eliminar cliente")]),
       !projects.length ? el("div", {class: "empty"}, "Sin proyectos.") :
       el("table", {class: "fixed"},
-        el("thead", {}, el("tr", {}, el("th", {style: "width:24%"}, "Proyecto"), el("th", {style: "width:15%"}, "Cliente"),
+        el("thead", {}, el("tr", {}, el("th", {style: "width:15%"}, "Cliente"), el("th", {style: "width:24%"}, "Proyecto"),
           el("th", {}, "Palabras clave"), el("th", {style: "width:84px"}, "Imputable"), el("th", {class: "num", style: "width:64px"}, "Reglas"),
           el("th", {class: "num", style: "width:84px"}, "30 días"), el("th", {style: "width:200px"}, ""))),
         el("tbody", {}, projects.map(p => el("tr", {},
-          el("td", {}, chip(p.name)),
           el("td", {}, el("input", {class: "client", value: p.client, list: "client-list",
             onchange: e => e.target.value.trim() && updateProject(p, {client: e.target.value.trim()})})),
+          el("td", {}, chip(p.name)),
           el("td", {style: "width:35%"}, el("input", {class: "kw", value: p.keywords.join(", "), placeholder: "—",
             title: "Separadas por comas. Se buscan en el título de la ventana, sin distinguir mayúsculas; al cambiarlas se actualiza la regla del proyecto",
             onchange: e => updateProject(p, {keywords: splitKw(e.target.value)})})),
@@ -738,9 +738,9 @@ function renderProjects() {
       const client = el("input", {list: "client-list", placeholder: "Cliente", style: "width:160px"});
       const bill = el("input", {type: "checkbox", checked: true});
       return el("tr", {},
+        el("td", {}, client),
         el("td", {}, chip(t.task)),
         el("td", {class: "num"}, t.seconds_30d ? hm(t.seconds_30d) : "–"),
-        el("td", {}, client),
         el("td", {}, el("label", {class: "check"}, bill, "Imputable")),
         el("td", {class: "num"}, el("button", {class: "btn", onclick: async () => {
           if (!client.value.trim()) return toast(`Indica el cliente de «${t.task}».`);
