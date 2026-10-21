@@ -97,6 +97,17 @@
   .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c);
                   flex: none; }
   .chip > span { overflow: hidden; text-overflow: ellipsis; }
+  .proj-form { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr auto auto auto; gap: 10px;
+               align-items: end; }
+  .proj-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+                     color: var(--muted); }
+  .proj-form label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px;
+                           white-space: nowrap; }
+  .proj-form input:not([type=checkbox]) { width: 100%; box-sizing: border-box; }
+  @media (max-width: 900px) { .proj-form { grid-template-columns: 1fr; } }
+  .client-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .client-head h2 { margin: 0; }
+  td input.kw { width: 100%; box-sizing: border-box; }
   .rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
           background: var(--panel); }
   .rule.dirty { border-color: var(--accent); }
@@ -104,6 +115,8 @@
   .rule-head input { flex: 1; font-weight: 600; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
   .fields label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  details.more { margin-top: 8px; }
+  details.more summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
   .preview { margin-top: 10px; font-size: 13px; }
   .preview table td { padding: 4px 6px; }
   .idx { color: var(--muted); font-variant-numeric: tabular-nums; width: 24px; }
@@ -132,6 +145,7 @@
       <button data-tab="day" class="active">Día</button>
       <button data-tab="week">Semana</button>
       <button data-tab="pending">Sin clasificar</button>
+      <button data-tab="projects">Proyectos</button>
       <button data-tab="rules">Reglas</button>
     </nav>
     <div class="spacer"></div>
@@ -154,6 +168,7 @@
   <section id="tab-day">
     <div class="kpis" style="margin-bottom:16px">
       <div class="kpi"><div class="v" id="k-worked">–</div><div class="l">Tiempo trabajado</div></div>
+      <div class="kpi"><div class="v" id="k-bill">–</div><div class="l">Imputable</div></div>
       <div class="kpi"><div class="v" id="k-tasks">–</div><div class="l">Tareas</div></div>
       <div class="kpi"><div class="v" id="k-uncl">–</div><div class="l">Sin clasificar</div></div>
       <div class="kpi"><div class="v" id="k-span">–</div><div class="l">Primera y última actividad</div></div>
@@ -161,6 +176,10 @@
     <div class="card">
       <h2>Línea temporal</h2>
       <div id="timeline"></div>
+    </div>
+    <div class="card">
+      <h2>Tiempo por cliente</h2>
+      <div id="clients"></div>
     </div>
     <div class="card">
       <h2>Tiempo por tarea</h2>
@@ -172,7 +191,12 @@
     </div>
     <div class="card">
       <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Actividades</h2>
-        <span class="muted">Pulsa una fila para ver el texto reconocido</span></div>
+        <span class="muted">Pulsa una fila para ver el texto reconocido</span>
+        <span style="flex:1"></span>
+        <label class="muted"><input type="checkbox" id="acts-topic"> Solo con tema</label>
+        <input type="search" id="acts-q" placeholder="Buscar en aplicación, título, tema, URL, tarea…"
+               style="width:320px">
+        <span class="muted" id="acts-count"></span></div>
       <div id="acts"></div>
     </div>
   </section>
@@ -185,7 +209,8 @@
         <span class="spacer"></span>
         <span class="muted">Ver por:</span>
         <select id="week-by" class="btn">
-          <option value="task">Tarea</option><option value="category">Tipo de aplicación</option>
+          <option value="task">Tarea</option><option value="client">Cliente</option>
+          <option value="category">Tipo de aplicación</option>
         </select>
       </div>
       <div id="week"></div>
@@ -207,6 +232,32 @@
     </div>
   </section>
 
+  <!-- PROYECTOS -->
+  <section id="tab-projects" class="hidden">
+    <div id="proj-msg" class="msg"></div>
+    <div class="card">
+      <h2>Nuevo proyecto</h2>
+      <div class="proj-form">
+        <label>Proyecto<input id="pf-name"></label>
+        <label>Cliente<input id="pf-client" list="client-list"></label>
+        <label>Palabras clave (separadas por comas, sin distinguir mayúsculas)<input id="pf-kw"></label>
+        <label class="check"><input type="checkbox" id="pf-bill" checked> Imputable</label>
+        <label class="check"><input type="checkbox" id="pf-gen" checked> Crear reglas</label>
+        <button class="btn primary" id="pf-create">Crear proyecto</button>
+      </div>
+      <p class="muted" id="pf-preview" style="margin:10px 0 0"></p>
+      <datalist id="client-list"></datalist>
+    </div>
+    <div id="proj-list"></div>
+    <div class="card">
+      <h2>Tareas sin proyecto</h2>
+      <p class="muted" style="margin-top:0">Tareas de las reglas que todavía no tienen cliente.
+        Asígnales uno para que cuenten en el informe por cliente; sus reglas no cambian.</p>
+      <div id="proj-unassigned"></div>
+    </div>
+    <p class="muted" id="proj-path"></p>
+  </section>
+
   <!-- REGLAS -->
   <section id="tab-rules" class="hidden">
     <div id="rules-msg" class="msg"></div>
@@ -214,8 +265,8 @@
       <select id="rules-kind" class="btn" title="Qué reglas editar">
         <option value="tasks">Tareas</option><option value="categories">Tipos de aplicación</option>
       </select>
-      <span class="muted">Gana la primera regla que coincida. Dentro de un campo, un patrón por
-        línea (basta con uno); entre campos se exigen todos.</span>
+      <span class="muted">Cada regla es una lista de expresiones regulares sobre el título de la
+        ventana, una por línea: basta con que coincida una. Gana la primera regla que coincida.</span>
       <span class="spacer"></span>
       <button class="btn" id="rule-add">+ Nueva regla</button>
       <button class="btn" id="rules-reload">Descartar cambios</button>
@@ -241,6 +292,7 @@ const FIELDS = [
   ["ocr", "Texto en pantalla, OCR (regex)", "\\bPROJ-\\d+\\b"],
   ["text", "Título, tema u OCR (regex)", "(?i)aodocs"],
 ];
+const SHORT = {process: "proceso", topic: "tema", url: "URL", ocr: "texto en pantalla", text: "título, tema u OCR"};
 const OTHER = "Otros";   // tipo de aplicación sin regla
 const state = { date: today(), tab: "day", kind: "tasks", rules: [], dirty: false, status: null };
 
@@ -259,6 +311,7 @@ function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v;
+    else if (k === "checked") e.checked = !!v;   // como atributo, «false» la marcaría
     else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
   }
   for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(k));
@@ -331,7 +384,7 @@ function load() {
   $("#csv").href = state.tab === "week"
     ? `/api/export.csv?from=${weekStart(state.date)}&to=${addDays(weekStart(state.date), 6)}`
     : `/api/export.csv?from=${state.date}`;
-  ({ day: loadDay, week: loadWeek, pending: loadPending, rules: loadRules })[state.tab]().catch(showError);
+  ({ day: loadDay, week: loadWeek, pending: loadPending, projects: loadProjects, rules: loadRules })[state.tab]().catch(showError);
 }
 function weekStart(d) { const x = new Date(d + "T12:00:00"); return addDays(d, -((x.getDay() + 6) % 7)); }
 function showError(e) { console.error(e); alert(e.message); }
@@ -342,12 +395,15 @@ async function loadDay() {
   const work = d.activities.filter(a => a.task !== AWAY);
   const uncl = d.totals.find(t => t.task === UNCL);
   $("#k-worked").textContent = hm(d.worked);
+  $("#k-bill").textContent = d.worked ? `${hm(d.billable)} · ${Math.round(100 * d.billable / d.worked)} %` : "–";
   $("#k-tasks").textContent = d.totals.filter(t => t.task !== UNCL).length;
   $("#k-uncl").textContent = d.worked ? `${Math.round(100 * (uncl ? uncl.seconds : 0) / d.worked)} %` : "–";
   $("#k-span").textContent = work.length ? `${clock(work[0].start)} – ${clock(work[work.length - 1].end)}` : "–";
   renderTimeline(d);
+  renderClients(d);
   renderTotals(d);
   renderCategories(d);
+  state.day = d;
   renderActivities(d);
 }
 
@@ -403,15 +459,34 @@ function renderTotals(d) {
   if (!d.totals.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin datos."));
   const max = Math.max(...d.totals.map(t => t.seconds));
   box.replaceChildren(el("table", {},
-    el("thead", {}, el("tr", {}, el("th", {}, "Tarea"), el("th", {class: "num"}, "Tiempo"),
+    el("thead", {}, el("tr", {}, el("th", {}, "Tarea"), el("th", {}, "Cliente"), el("th", {class: "num"}, "Tiempo"),
       el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Tipos de aplicación"), el("th", {}, "Aplicaciones principales"))),
     el("tbody", {}, d.totals.map(t => el("tr", {},
       el("td", {}, chip(t.task)),
+      el("td", {class: "muted", style: "white-space:nowrap"}, t.client ? `${t.client}${t.billable ? "" : " · no imputable"}` : ""),
       el("td", {class: "num"}, hm(t.seconds)),
       el("td", {class: "num"}, d.worked ? `${(100 * t.seconds / d.worked).toFixed(0)} %` : ""),
       el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * t.seconds / max}%;background:${color(t.task)}`}))),
       el("td", {}, stacked(t.categories, t.seconds)),
       el("td", {class: "muted"}, t.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ")))))));
+}
+
+function renderClients(d) {
+  const box = $("#clients");
+  if (!d.clients.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin datos."));
+  const max = Math.max(...d.clients.map(c => c.seconds));
+  box.replaceChildren(el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, "Cliente"), el("th", {class: "num"}, "Tiempo"),
+      el("th", {class: "num"}, "%"), el("th", {class: "num"}, "Imputable"), el("th", {}, ""), el("th", {}, "Reparto por proyecto"))),
+    el("tbody", {}, d.clients.map(c => el("tr", {},
+      el("td", {}, chip(c.client)),
+      el("td", {class: "num"}, hm(c.seconds)),
+      el("td", {class: "num"}, d.worked ? `${(100 * c.seconds / d.worked).toFixed(0)} %` : ""),
+      el("td", {class: "num"}, c.billable ? hm(c.billable) : "–"),
+      el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * c.seconds / max}%;background:${color(c.client)}`}))),
+      el("td", {}, stacked(c.projects, c.seconds)))))));
+  if (!$("#clients-hint") && d.clients.every(c => c.client === "Sin cliente"))
+    box.append(el("p", {class: "muted", id: "clients-hint"}, "Aún no hay proyectos con cliente: créalos en la pestaña Proyectos."));
 }
 
 // Barra apilada con el reparto (p. ej. tipos dentro de una tarea), con leyenda al pasar el ratón.
@@ -440,10 +515,19 @@ function renderCategories(d) {
       el("td", {class: "muted"}, c.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ")))))));
 }
 
+$("#acts-q").oninput = $("#acts-topic").onchange = () => state.day && renderActivities(state.day);
 function renderActivities(d) {
   const box = $("#acts");
-  const rows = d.activities.filter(a => a.task !== AWAY && a.end - a.start >= 10).reverse();
-  if (!rows.length) return box.replaceChildren(el("div", {class: "empty"}, "Sin actividades."));
+  const all = d.activities.filter(a => a.task !== AWAY && a.end - a.start >= 10).reverse();
+  // Búsqueda: todas las palabras deben aparecer (sin distinguir mayúsculas ni acentos).
+  const fold = t => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const words = fold($("#acts-q").value).split(/\s+/).filter(Boolean);
+  const onlyTopic = $("#acts-topic").checked;
+  const rows = all.filter(a => (!onlyTopic || a.topic) && words.every(w =>
+    fold(`${a.app} ${a.process} ${a.title} ${a.topic} ${a.url} ${a.task} ${a.category}`).includes(w)));
+  $("#acts-count").textContent = words.length || onlyTopic ? `${rows.length} de ${all.length}` : "";
+  if (!rows.length) return box.replaceChildren(el("div", {class: "empty"},
+    all.length ? "Ninguna actividad coincide con la búsqueda." : "Sin actividades."));
   box.replaceChildren(el("table", {},
     el("thead", {}, el("tr", {}, el("th", {}, "Hora"), el("th", {class: "num"}, "Duración"),
       el("th", {}, "Aplicación"), el("th", {}, "Título"), el("th", {}, "Tipo"), el("th", {}, "Tarea"))),
@@ -453,6 +537,7 @@ function renderActivities(d) {
       el("td", {title: a.url || a.process}, a.app),
       el("td", {class: "ellipsis", title: a.topic ? `${a.title}\nTema: ${a.topic}` : a.title},
         a.topic ? [el("b", {}, a.topic), el("span", {class: "muted"}, `  · ${a.title}`)] : (a.title || "(sin título)"),
+        a.in_call ? el("span", {class: "muted"}, "  · en llamada") : "",
         a.has_ocr ? "" : el("span", {class: "muted"}, "  · sin OCR")),
       el("td", {}, chip(a.category)),
       el("td", {}, chip(a.task)))))));
@@ -479,6 +564,118 @@ function closeModal() { $("#modal").classList.remove("open"); }
 $("#modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
+// ---------- proyectos ----------
+function projMsg(text, ok) {
+  const m = $("#proj-msg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "err");
+  if (ok) setTimeout(() => m.className = "msg", 4000);
+}
+const splitKw = v => v.split(",").map(x => x.trim()).filter(Boolean);
+
+async function loadProjects() {
+  const r = state.projects = await api("/api/projects");
+  $("#client-list").replaceChildren(...r.clients.map(c => el("option", {value: c})));
+  $("#proj-path").textContent = `Fichero: ${r.path}`;
+  renderProjects();
+  previewProject();
+}
+
+function previewProject() {
+  const name = $("#pf-name").value.trim();
+  const terms = [name, ...splitKw($("#pf-kw").value)].filter(Boolean);
+  $("#pf-preview").textContent = !terms.length ? ""
+    : !$("#pf-gen").checked ? "No se crearán reglas: asigna después las reglas que quieras en la pestaña Reglas."
+    : `Se creará una regla: ventanas cuyo título contenga ${terms.map(t => `«${t}»`).join(" o ")}.`;
+}
+for (const id of ["#pf-name", "#pf-kw"]) $(id).oninput = previewProject;
+$("#pf-gen").onchange = previewProject;
+
+$("#pf-create").onclick = async () => {
+  const body = {name: $("#pf-name").value.trim(), client: $("#pf-client").value.trim(),
+                keywords: splitKw($("#pf-kw").value), billable: $("#pf-bill").checked,
+                generate: $("#pf-gen").checked};
+  if (!body.name || !body.client) return projMsg("Indica el nombre del proyecto y el cliente.");
+  try {
+    const r = await post("/api/projects", body);
+    projMsg(`Proyecto «${body.name}» creado${r.rules_added ? " con su regla" : ""}. Se aplica ya al registro y al histórico.`, true);
+    $("#pf-name").value = ""; $("#pf-kw").value = "";
+    await loadProjects();
+  } catch (e) { projMsg(e.message); }
+};
+
+async function updateProject(p, changes) {
+  try {
+    await api("/api/projects", {method: "PUT", body: JSON.stringify({...p, ...changes, old_name: p.name})});
+    projMsg("Guardado.", true);
+  } catch (e) { projMsg(e.message); }
+  await loadProjects();
+}
+
+async function deleteProject(p) {
+  if (!confirm(`¿Eliminar el proyecto «${p.name}»?`)) return;
+  const delete_rules = p.rules > 0 && confirm(`¿Eliminar también sus ${p.rules} reglas? Si no, la tarea seguirá existiendo sin cliente.`);
+  try {
+    const r = await post("/api/projects/delete", {name: p.name, delete_rules});
+    projMsg(`Proyecto eliminado${r.rules_removed ? ` junto con ${r.rules_removed} reglas` : ""}.`, true);
+  } catch (e) { projMsg(e.message); }
+  await loadProjects();
+}
+
+function renderProjects() {
+  const r = state.projects;
+  const byClient = new Map(r.clients.map(c => [c, []]));
+  for (const p of r.projects) byClient.get(p.client).push(p);
+  $("#proj-list").replaceChildren(...[...byClient].map(([client, projects]) => {
+    const total = projects.reduce((a, p) => a + p.seconds_30d, 0);
+    return el("div", {class: "card"},
+      el("div", {class: "client-head"}, chip(client), el("span", {class: "muted"},
+        `${projects.length} proyecto${projects.length === 1 ? "" : "s"} · ${hm(total)} en 30 días`),
+        projects.length ? "" : [el("span", {class: "spacer"}), el("button", {class: "btn danger", onclick: async () => {
+          if (!confirm(`¿Eliminar el cliente «${client}»?`)) return;
+          try { await post("/api/clients/delete", {name: client}); projMsg("Cliente eliminado.", true); }
+          catch (e) { projMsg(e.message); }
+          await loadProjects();
+        }}, "Eliminar cliente")]),
+      !projects.length ? el("div", {class: "empty"}, "Sin proyectos.") :
+      el("table", {},
+        el("thead", {}, el("tr", {}, el("th", {}, "Proyecto"), el("th", {}, "Cliente"),
+          el("th", {}, "Palabras clave"), el("th", {}, "Imputable"), el("th", {class: "num"}, "Reglas"),
+          el("th", {class: "num"}, "30 días"), el("th", {}, ""))),
+        el("tbody", {}, projects.map(p => el("tr", {},
+          el("td", {}, chip(p.name)),
+          el("td", {}, el("input", {value: p.client, list: "client-list", style: "width:140px",
+            onchange: e => e.target.value.trim() && updateProject(p, {client: e.target.value.trim()})})),
+          el("td", {style: "width:35%"}, el("input", {class: "kw", value: p.keywords.join(", "), placeholder: "—",
+            title: "Separadas por comas. Se buscan en el título de la ventana, sin distinguir mayúsculas; al cambiarlas se actualiza la regla del proyecto",
+            onchange: e => updateProject(p, {keywords: splitKw(e.target.value)})})),
+          el("td", {}, el("input", {type: "checkbox", checked: p.billable,
+            onchange: e => updateProject(p, {billable: e.target.checked})})),
+          el("td", {class: "num"}, p.rules ? String(p.rules) : el("span", {class: "pill warn"}, "0")),
+          el("td", {class: "num"}, p.seconds_30d ? hm(p.seconds_30d) : "–"),
+          el("td", {class: "num", style: "white-space:nowrap"},
+            el("button", {class: "btn", onclick: () => { const n = prompt("Nuevo nombre del proyecto (renombra también sus reglas):", p.name); if (n && n.trim() !== p.name) updateProject(p, {name: n.trim()}); }}, "Renombrar"), " ",
+            el("button", {class: "btn danger", onclick: () => deleteProject(p)}, "Eliminar")))))));
+  }));
+  const un = r.unassigned;
+  $("#proj-unassigned").replaceChildren(!un.length ? el("div", {class: "empty"}, "Todas las tareas tienen proyecto.") :
+    el("table", {}, el("tbody", {}, un.map(t => {
+      const client = el("input", {list: "client-list", placeholder: "Cliente", style: "width:160px"});
+      const bill = el("input", {type: "checkbox", checked: true});
+      return el("tr", {},
+        el("td", {}, chip(t.task)),
+        el("td", {class: "num"}, t.seconds_30d ? hm(t.seconds_30d) : "–"),
+        el("td", {}, client),
+        el("td", {}, el("label", {class: "muted"}, bill, " Imputable")),
+        el("td", {class: "num"}, el("button", {class: "btn", onclick: async () => {
+          if (!client.value.trim()) return projMsg(`Indica el cliente de «${t.task}».`);
+          try {
+            await post("/api/projects", {name: t.task, client: client.value.trim(), billable: bill.checked, generate: false});
+            projMsg(`«${t.task}» asignado a ${client.value.trim()}.`, true);
+          } catch (e) { projMsg(e.message); }
+          await loadProjects();
+        }}, "Asignar")));
+    }))));
+}
+
 // ---------- semana ----------
 async function loadWeek() {
   const w = await api(`/api/week?date=${state.date}&by=${$("#week-by").value}`);
@@ -487,7 +684,7 @@ async function loadWeek() {
   if (!w.tasks.length) return $("#week").replaceChildren(el("div", {class: "empty"}, "Sin datos esta semana."));
   const grand = w.totals.reduce((a, b) => a + b, 0);
   $("#week").replaceChildren(el("table", {},
-    el("thead", {}, el("tr", {}, el("th", {}, $("#week-by").value === "category" ? "Tipo" : "Tarea"), names.map((n, i) =>
+    el("thead", {}, el("tr", {}, el("th", {}, ({category: "Tipo", client: "Cliente"})[$("#week-by").value] || "Tarea"), names.map((n, i) =>
       el("th", {class: "num", style: "cursor:pointer", title: "Ver el día", onclick: () => { state.tab = "day"; switchTab("day"); setDate(w.days[i]); }}, n)),
       el("th", {class: "num"}, "Total"))),
     el("tbody", {}, w.tasks.map(t => el("tr", {},
@@ -534,6 +731,22 @@ function renderRules() {
 function ruleCard(r, i) {
   const card = el("div", {class: "rule" + (r._dirty ? " dirty" : "")});
   const touch = () => { r._dirty = true; card.classList.add("dirty"); setDirty(true); };
+  const field = ([key, label, ph], text = label) => el("div", {},
+    el("label", {}, text),
+    el("textarea", {rows: Math.max(1, (r[key] || []).length),
+      oninput: e => { r[key] = e.target.value.split("\n"); touch(); }}, (r[key] || []).join("\n")));
+  // Lo habitual es filtrar solo por el título; el resto de condiciones quedan plegadas salvo
+  // que la regla ya las use. Entre campos se exigen todas.
+  const advanced = () => {
+    const rest = FIELDS.filter(f => f[0] !== "title");
+    const used = rest.filter(([key]) => (r[key] || []).some(v => v.trim()));
+    const box = el("details", {class: "more"},
+      el("summary", {}, used.length ? `Más condiciones: ${used.map(f => SHORT[f[0]]).join(", ")} (se exigen todas)`
+                                    : "Más condiciones (proceso, tema, URL, texto en pantalla)"),
+      el("div", {class: "fields"}, rest.map(f => field(f))));
+    if (used.length) box.open = true;
+    return box;
+  };
   const preview = el("div", {class: "preview"});
   const move = (delta) => { const j = i + delta; if (j < 0 || j >= state.rules.length) return;
     [state.rules[i], state.rules[j]] = [state.rules[j], state.rules[i]]; setDirty(true); renderRules(); };
@@ -546,10 +759,8 @@ function ruleCard(r, i) {
       el("button", {class: "btn", title: "Bajar prioridad", onclick: () => move(1)}, "↓"),
       el("button", {class: "btn", onclick: () => runPreview(r, preview)}, "Vista previa"),
       el("button", {class: "btn danger", onclick: () => { if (confirm(`¿Eliminar la regla «${r.task}»?`)) { state.rules.splice(i, 1); setDirty(true); renderRules(); } }}, "Eliminar")),
-    el("div", {class: "fields"}, FIELDS.map(([key, label, ph]) => el("div", {},
-      el("label", {}, label),
-      el("textarea", {rows: Math.max(1, (r[key] || []).length), placeholder: ph,
-        oninput: e => { r[key] = e.target.value.split("\n"); touch(); }}, (r[key] || []).join("\n"))))),
+    field(FIELDS.find(f => f[0] === "title"), "Títulos: una expresión regular por línea, p. ej. (?i)\\bPROJ-42\\b"),
+    advanced(),
     preview);
   if (r._autopreview) { delete r._autopreview; runPreview(r, preview); }
   return card;
@@ -612,7 +823,7 @@ window.addEventListener("beforeunload", e => { if (state.dirty) { e.preventDefau
 // ---------- arranque ----------
 $("#date").value = state.date;
 const hash = location.hash.slice(1);
-if (["day", "week", "pending", "rules"].includes(hash)) switchTab(hash); else load();
+if (["day", "week", "pending", "projects", "rules"].includes(hash)) switchTab(hash); else load();
 refreshStatus();
 setInterval(refreshStatus, 5000);
 setInterval(() => { if (state.tab === "day" && state.date === today() && !document.hidden) loadDay().catch(() => {}); }, 60000);

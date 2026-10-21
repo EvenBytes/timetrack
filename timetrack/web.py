@@ -18,6 +18,8 @@ from urllib.parse import parse_qs, urlparse
 
 from . import report
 from .config import RULE_FIELDS, Config, load_rules, save_rules
+from .projects import (NO_CLIENT, Project, Projects, generated_rule, insert_rule,
+                       load_projects, save_projects, sync_rule, validate)
 from .rules import OTHER_CATEGORY, RuleSet, UNCLASSIFIED
 from .store import Store
 
@@ -80,6 +82,14 @@ class Panel:
         if self.tracker and kind == "tasks":
             self.tracker.reload_rules(cleaned)
         return cleaned
+
+    def projects(self) -> Projects:
+        return load_projects(self.cfg.projects_path)
+
+    def save_projects(self, data: Projects) -> None:
+        validate(data)
+        with self._rules_lock:
+            save_projects(self.cfg.projects_path, data)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -173,10 +183,14 @@ class _Handler(BaseHTTPRequestHandler):
     def get_api_day(self, q):
         day = _date(q)
         items = self.ctx.items(day)
+        projects = self.ctx.projects()
+        totals = report.task_totals(items)
         self._json({
             "date": day.isoformat(),
             "worked": report.worked_seconds(items),
-            "totals": [_total(t) for t in report.task_totals(items)],
+            "billable": sum(t.seconds for t in totals if projects.billable(t.task)),
+            "totals": [_total(t, projects) for t in totals],
+            "clients": _client_totals(totals, projects),
             "categories": [{"category": c.category, "seconds": c.seconds, "tasks": _ranked(c.tasks),
                             "apps": _ranked(c.apps)} for c in report.category_totals(items)],
             "blocks": [_block(b) for b in report.timeline(items)],
@@ -188,12 +202,19 @@ class _Handler(BaseHTTPRequestHandler):
         day = _date(q)
         monday = day - timedelta(days=day.weekday())
         days = [monday + timedelta(days=i) for i in range(7)]
-        by_category = q.get("by") == "category"
+        by = q.get("by", "task")
+        projects = self.ctx.projects()
         per_task: dict[str, list[float]] = {}
         for i, d in enumerate(days):
             items = self.ctx.items(d)
-            rows = ([(c.category, c.seconds) for c in report.category_totals(items)] if by_category
-                    else [(t.task, t.seconds) for t in report.task_totals(items)])
+            if by == "category":
+                rows = [(c.category, c.seconds) for c in report.category_totals(items)]
+            elif by == "client":
+                rows = [(t.task if t.task == UNCLASSIFIED
+                         else projects.client_of(t.task) or NO_CLIENT, t.seconds)
+                        for t in report.task_totals(items)]
+            else:
+                rows = [(t.task, t.seconds) for t in report.task_totals(items)]
             for name, seconds in rows:
                 per_task.setdefault(name, [0.0] * 7)[i] += seconds
         tasks = sorted(({"task": k, "days": v, "total": sum(v)} for k, v in per_task.items()),
@@ -249,11 +270,103 @@ class _Handler(BaseHTTPRequestHandler):
                          for (p, t, tp, c), s in ranked[:25]],
         })
 
+    def get_api_projects(self, q):
+        data = self.ctx.projects()
+        tasks = list(dict.fromkeys(r["task"] for r in load_rules(self.ctx.cfg.rules_path)))
+        # Tiempo de los últimos 30 días por tarea, para ver qué está en uso.
+        day = date.today()
+        totals = {t.task: t.seconds
+                  for t in report.task_totals(self.ctx.items(day - timedelta(days=29), day))}
+        self._json({
+            "clients": data.all_clients(),
+            "projects": [{**asdict(p), "rules": sum(1 for r in load_rules(self.ctx.cfg.rules_path)
+                                                   if r["task"] == p.name),
+                          "seconds_30d": totals.get(p.name, 0.0)} for p in data.projects],
+            "unassigned": [{"task": t, "seconds_30d": totals.get(t, 0.0)}
+                           for t in tasks if not data.get(t)],
+            "path": str(self.ctx.cfg.projects_path),
+        })
+
+    def post_api_projects(self, q):
+        """Crea (o asigna) un proyecto; con generate=true añade sus reglas evidentes."""
+        body = self._body()
+        project = _project(body)
+        data = self.ctx.projects()
+        if data.get(project.name):
+            raise ValueError(f"Ya existe el proyecto «{project.name}»")
+        data.projects.append(project)
+        self.ctx.save_projects(data)
+        added = 0
+        rules = load_rules(self.ctx.cfg.rules_path)
+        if body.get("generate", True) and not any(r["task"] == project.name for r in rules):
+            self.ctx.save_rules(insert_rule(rules, generated_rule(project)))
+            added = 1
+        self._json({"project": asdict(project), "rules_added": added})
+
+    def put_api_projects(self, q):
+        """Edita un proyecto (cliente, imputable, palabras clave o nombre)."""
+        body = self._body()
+        old = str(body.get("old_name") or "").strip()
+        project = _project(body)
+        data = self.ctx.projects()
+        current = data.get(old)
+        if not current:
+            raise ValueError(f"No existe el proyecto «{old}»")
+        if project.name != old and data.get(project.name):
+            raise ValueError(f"Ya existe el proyecto «{project.name}»")
+        data.projects[data.projects.index(current)] = project
+        self.ctx.save_projects(data)
+        rules = load_rules(self.ctx.cfg.rules_path)
+        if project.name != old:   # renombrar el proyecto renombra la tarea en sus reglas
+            for r in rules:
+                if r["task"] == old:
+                    r["task"] = project.name
+        if project.name != old or project.keywords != current.keywords:
+            # Nombre y palabras clave son la regla básica del proyecto (título, sin mayúsculas).
+            rules = sync_rule(rules, current, project)
+        self.ctx.save_rules(rules)
+        self._json({"project": asdict(project)})
+
+    def post_api_projects_delete(self, q):
+        body = self._body()
+        name = str(body.get("name") or "")
+        data = self.ctx.projects()
+        data.projects = [p for p in data.projects if p.name != name]
+        self.ctx.save_projects(data)
+        removed = 0
+        if body.get("delete_rules"):
+            rules = load_rules(self.ctx.cfg.rules_path)
+            kept = [r for r in rules if r["task"] != name]
+            removed = len(rules) - len(kept)
+            self.ctx.save_rules(kept)
+        self._json({"rules_removed": removed})
+
+    def post_api_clients(self, q):
+        body = self._body()
+        name = str(body.get("name") or "").strip()
+        if not name:
+            raise ValueError("Falta el nombre del cliente")
+        data = self.ctx.projects()
+        if name not in data.all_clients():
+            data.clients.append(name)
+            self.ctx.save_projects(data)
+        self._json({"clients": data.all_clients()})
+
+    def post_api_clients_delete(self, q):
+        body = self._body()
+        name = str(body.get("name") or "")
+        data = self.ctx.projects()
+        if any(p.client == name for p in data.projects):
+            raise ValueError(f"El cliente «{name}» aún tiene proyectos")
+        data.clients = [c for c in data.clients if c != name]
+        self.ctx.save_projects(data)
+        self._json({"clients": data.all_clients()})
+
     def get_api_export_csv(self, q):
         start = _date(q, "from")
         end = _date(q, "to") if "to" in q else start
         buf = io.StringIO()
-        report.export_csv(self.ctx.items(start, end), buf)
+        report.export_csv(self.ctx.items(start, end), buf, self.ctx.projects())
         name = f"timetrack_{start.isoformat()}_{end.isoformat()}.csv"
         self._send(200, ("﻿" + buf.getvalue()).encode("utf-8"), "text/csv; charset=utf-8",
                    {"Content-Disposition": f'attachment; filename="{name}"'})
@@ -270,9 +383,35 @@ def _ranked(apps: dict[str, float]) -> list[list]:
     return [[p, s] for p, s in sorted(apps.items(), key=lambda kv: -kv[1])]
 
 
-def _total(t: report.TaskTotal) -> dict:
+def _total(t: report.TaskTotal, projects: Projects) -> dict:
     return {"task": t.task, "seconds": t.seconds, "apps": _ranked(t.apps),
-            "categories": _ranked(t.categories)}
+            "categories": _ranked(t.categories), "client": projects.client_of(t.task),
+            "billable": projects.billable(t.task)}
+
+
+def _client_totals(totals: list[report.TaskTotal], projects: Projects) -> list[dict]:
+    clients: dict[str, dict] = {}
+    for t in totals:
+        if t.task == UNCLASSIFIED:
+            continue
+        name = projects.client_of(t.task) or NO_CLIENT
+        c = clients.setdefault(name, {"client": name, "seconds": 0.0, "billable": 0.0,
+                                      "projects": []})
+        c["seconds"] += t.seconds
+        if projects.billable(t.task):
+            c["billable"] += t.seconds
+        c["projects"].append([t.task, t.seconds])
+    return sorted(clients.values(), key=lambda c: (c["client"] == NO_CLIENT, -c["seconds"]))
+
+
+def _project(body: dict) -> Project:
+    keywords = body.get("keywords") or []
+    if isinstance(keywords, str):
+        keywords = keywords.split(",")
+    return Project(name=str(body.get("name") or "").strip(),
+                   client=str(body.get("client") or "").strip(),
+                   billable=bool(body.get("billable", True)),
+                   keywords=[k.strip() for k in keywords if str(k).strip()])
 
 
 def _block(b: report.Block) -> dict:
@@ -281,7 +420,7 @@ def _block(b: report.Block) -> dict:
 
 def _activity(a, task: str) -> dict:
     return {"id": a.id, "start": a.start_ts, "end": a.end_ts, "process": a.process,
-            "app": a.app, "url": a.url, "title": a.title, "topic": a.topic, "task": task, "category": a.category, "has_ocr": bool(a.ocr_text),
+            "app": a.app, "url": a.url, "title": a.title, "topic": a.topic, "task": task, "category": a.category, "has_ocr": bool(a.ocr_text), "in_call": a.in_call,
             "unclassified": task == UNCLASSIFIED}
 
 

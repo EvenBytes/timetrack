@@ -49,6 +49,21 @@ url = ['^teams\.microsoft\.com/(light-meetings|.*meetup-join)', '^meet\.google\.
 task = "Reuniones"
 title = ['(?i)microsoft teams meeting|reunión de microsoft teams|^join conversation$|^meet - |\bzoom (meeting|workplace)\b']
 
+# Teams (web o escritorio): el título dice la sección abierta. «Chat | …», «Activity | …» son
+# chats; el calendario va con el correo; lo demás «<nombre> | Microsoft Teams» es la ventana de
+# una reunión o llamada. (Con el micrófono o la cámara en uso siempre cuenta como Reuniones.)
+[[rules]]
+task = "Chats"
+title = ['^(Chat|Activity|Actividad|Teams|Equipos|Communities|Comunidades|Files|Archivos|OneDrive|Apps|Aplicaciones|Copilot) \|', '^(Chat|Microsoft Teams)$', '(?i) - chat$', '(?i)\bmessaged you\b']
+
+[[rules]]
+task = "Correo"
+title = ['^(Calendar|Calendario) \|.*\| Microsoft Teams$']
+
+[[rules]]
+task = "Reuniones"
+title = ['^(Calls|Llamadas) \|', '\| Microsoft Teams$']
+
 [[rules]]
 task = "Chats"
 process = ["ms-teams.exe", "teams.exe", "slack.exe", "whatsapp.exe", "telegram.exe"]
@@ -56,14 +71,6 @@ process = ["ms-teams.exe", "teams.exe", "slack.exe", "whatsapp.exe", "telegram.e
 [[rules]]
 task = "Chats"
 url = ['^chat\.google\.com', '^mail\.google\.com/chat', '^web\.whatsapp\.com', '^app\.slack\.com', '^teams\.(microsoft|live)\.com']
-
-[[rules]]
-task = "Chats"
-title = ['^(Chat|Activity|Actividad|Teams|Equipos) \|', '^(Chat|Microsoft Teams)$', '(?i) - chat$', '(?i)\bmessaged you\b']
-
-[[rules]]
-task = "Reuniones"
-title = ['\| Microsoft Teams$']
 
 [[rules]]
 task = "Documentos"

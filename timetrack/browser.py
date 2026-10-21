@@ -67,12 +67,15 @@ def normalize(raw: str) -> str:
     raw = raw.strip()
     if not raw or " " in raw:   # texto que se está escribiendo en la barra, no una URL
         return ""
-    parts = urlsplit(raw if _HAS_SCHEME.match(raw) else f"https://{raw}")
-    if parts.scheme not in ("http", "https", "file") or not parts.hostname:
+    try:
+        parts = urlsplit(raw if _HAS_SCHEME.match(raw) else f"https://{raw}")
+        if parts.scheme not in ("http", "https", "file") or not parts.hostname:
+            return ""
+        host = parts.hostname
+        if parts.port:   # «about:blank», «chrome:newtab»… se leen como un puerto no numérico
+            host = f"{host}:{parts.port}"
+    except ValueError:
         return ""
-    host = parts.hostname
-    if parts.port:
-        host = f"{host}:{parts.port}"
     return f"{host}{parts.path.rstrip('/')}"[:300]
 
 

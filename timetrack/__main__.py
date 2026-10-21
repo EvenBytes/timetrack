@@ -73,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from . import report
     from .config import load_rules
+    from .projects import load_projects
     from .rules import OTHER_CATEGORY, RuleSet
     from .store import Store
     store = Store(cfg.db_path)
@@ -87,9 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "export":
         if args.out:
             with open(args.out, "w", newline="", encoding="utf-8-sig") as f:
-                report.export_csv(items, f)
+                report.export_csv(items, f, load_projects(cfg.projects_path))
         else:
-            report.export_csv(items, None)
+            report.export_csv(items, None, load_projects(cfg.projects_path))
     return 0
 
 

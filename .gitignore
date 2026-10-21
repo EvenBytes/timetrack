@@ -16,3 +16,4 @@ rules.toml
 # Material de terceros que no se redistribuye
 manictime_binaries/
 manictime_funcionalidades.md
+projects.toml

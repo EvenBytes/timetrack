@@ -31,10 +31,11 @@ _TRANSIENT_CLASSES = {"Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOver
                       "TopLevelWindowForOverflowXamlIsland", "XamlExplorerHostIslandWindow",
                       "MultitaskingViewFrame", "ForegroundStaging", "TaskSwitcherWnd"}
 _FLUSH_EVERY_S = 5.0
+_AWAY_KEY = (AWAY, "", "", False)
 # La URL se relee al cambiar de ventana o de título y, si no, cada tanto (webs de una página).
 _URL_EVERY_S = 3.0
-# El registro del micrófono y la cámara solo se mira cuando ya hay un rato sin teclado ni ratón.
-_MEDIA_CHECK_AFTER_S = 30.0
+# Cada cuánto se mira si el micrófono o la cámara están en uso (una llamada).
+_MEDIA_EVERY_S = 2.0
 
 
 @dataclass
@@ -66,11 +67,13 @@ class Tracker:
         # store, capturer y ocr se crean en el hilo que ejecuta run(): mss y sqlite son por hilo.
         self.store: Store | None = None
         self._reset_activity_state()
-        self._key: tuple[str, str, str] | None = None
+        self._key: tuple[str, str, str, bool] | None = None
         self._urls: BrowserUrls | None = None
         self._url_cache: tuple[int, str, float, str] = (0, "", 0.0, "")   # hwnd, título, ts, url
         self._activity: Activity | None = None
         self._media_ts = 0.0   # último instante con el micrófono o la cámara en uso
+        self._media_checked = 0.0
+        self._in_call = False
 
     # --- control -------------------------------------------------------------------------
 
@@ -123,6 +126,7 @@ class Tracker:
                     else:
                         self._tick(time.time())
                     failures = 0
+                    self._error = ""
                 except Exception as exc:
                     # Un fallo puntual (una ventana que se cierra a mitad de lectura, la base de
                     # datos ocupada…) no debe parar el seguimiento: se registra y se sigue.
@@ -146,8 +150,8 @@ class Tracker:
 
         if locked or idle_s >= self.s.idle_threshold_s:
             # Al pasar a ausente por inactividad, el corte real fue la última entrada del usuario.
-            boundary = now - idle_s if not locked and self._key != (AWAY, "", "") else now
-            self._switch_to((AWAY, "", ""), "", boundary)
+            boundary = now - idle_s if not locked and self._key != _AWAY_KEY else now
+            self._switch_to(_AWAY_KEY, "", boundary)
             self._maybe_flush(now)
             return
 
@@ -157,7 +161,9 @@ class Tracker:
             return
 
         url = self._url_for(fg, now)
-        self._switch_to((fg.process, clean_title(fg.title), domain(url)), fg.exe_path, now, url)
+        # Empezar o colgar una llamada parte la actividad: así se sabe qué parte fue llamada.
+        self._switch_to((fg.process, clean_title(fg.title), domain(url), self._in_call),
+                        fg.exe_path, now, url)
         self._maybe_flush(now)
         self._maybe_ocr(fg, now)
 
@@ -165,15 +171,20 @@ class Tracker:
         """Tiempo sin teclado ni ratón; una llamada (micrófono o cámara en uso) cuenta como
         actividad, así que una reunión en la que no se toca nada no pasa a ausente."""
         idle_s = win32.seconds_since_last_input()
-        if not self.s.media_keeps_present or idle_s < _MEDIA_CHECK_AFTER_S:
+        if not self.s.media_keeps_present:
             return idle_s
-        try:
-            if media_in_use():
-                if now - self._media_ts > 60:
-                    log.info("  Micrófono o cámara en uso: se mantiene como presente")
-                self._media_ts = now
-        except Exception:
-            log.exception("No se pudo comprobar el uso del micrófono o la cámara")
+        if now - self._media_checked >= _MEDIA_EVERY_S:
+            self._media_checked = now
+            try:
+                in_call = media_in_use()
+            except Exception:
+                log.exception("No se pudo comprobar el uso del micrófono o la cámara")
+                in_call = False
+            if in_call != self._in_call:
+                log.info("  Micrófono o cámara %s", "en uso: llamada" if in_call else "libres")
+            self._in_call = in_call
+        if self._in_call:
+            self._media_ts = now
         # Al colgar, la ausencia empieza a contar desde el final de la llamada, no desde la
         # última tecla pulsada.
         return min(idle_s, now - self._media_ts)
@@ -198,7 +209,12 @@ class Tracker:
         hwnd, title, ts, url = self._url_cache
         if hwnd == fg.hwnd and title == fg.title and now - ts < _URL_EVERY_S:
             return url
-        read = self._urls.url(fg.hwnd, fg.process)
+        try:
+            read = self._urls.url(fg.hwnd, fg.process)
+        except Exception:
+            # Sin URL se sigue registrando la ventana; un fallo aquí no debe perder el ciclo.
+            log.exception("No se pudo leer la URL de %s", fg.process)
+            read = ""
         if read is None:   # escribiendo en la barra de direcciones: se mantiene la anterior
             return url if hwnd == fg.hwnd else ""
         url = self.privacy.clean(read)
@@ -213,15 +229,25 @@ class Tracker:
             ts = max(ts, self._activity.start_ts)   # nunca solapar con la actividad anterior
             self._activity.end_ts = ts
             self.store.extend_activity(self._activity.id, ts)
-        process, title, _ = key
-        activity_id = self.store.start_activity(ts, process, exe_path, title, url=url)
-        self._activity = Activity(activity_id, ts, ts, process, exe_path, title, url=url)
+        process, title, _, in_call = key
+        topic = self._title_topic(process, title, url)
+        activity_id = self.store.start_activity(ts, process, exe_path, title, topic, url, in_call)
+        self._activity = Activity(activity_id, ts, ts, process, exe_path, title, topic=topic,
+                                  url=url, in_call=in_call)
         self._key = key
         self._reset_activity_state()
         self._switch_ts = ts
-        log.info("%s | %s%s → %s", process, title[:90] or "(sin título)",
-                 f" [{key[2]}]" if key[2] else "",
+        log.info("%s | %s%s%s%s → %s", process, title[:90] or "(sin título)",
+                 f" [{key[2]}]" if key[2] else "", f" «{topic[:60]}»" if topic else "",
+                 " (llamada)" if in_call else "",
                  self.rules.classify(self._activity))
+
+    def _title_topic(self, process: str, title: str, url: str) -> str:
+        """Tema de las apps que lo ponen en el título (Gmail); el resto lo saca el OCR."""
+        if not process or not self.privacy.ocr_allowed(process, title):
+            return ""
+        app = self.topics.app_for(title, url)
+        return self.privacy.clean(app.topic_from_title(title)) if app and app.title_topic else ""
 
     def _maybe_flush(self, now: float) -> None:
         if self._activity and now - self._last_flush >= _FLUSH_EVERY_S:
@@ -253,7 +279,7 @@ class Tracker:
         text = self.privacy.clean("\n".join(ln.text for ln in lines).strip())
 
         app = self.topics.app_for(fg.title, self._activity.url)
-        if app:
+        if app and not app.title_topic:
             topic = self.privacy.clean(self.topics.extract(app, lines, capture.width, capture.height))
             self._apply_topic(topic, now)
 
@@ -277,8 +303,8 @@ class Tracker:
             act.end_ts = now
             self.store.extend_activity(act.id, now)
             new_id = self.store.start_activity(now, act.process, act.exe_path, act.title, topic,
-                                               act.url)
+                                               act.url, act.in_call)
             self._activity = Activity(new_id, now, now, act.process, act.exe_path, act.title,
-                                      topic=topic, url=act.url)
+                                      topic=topic, url=act.url, in_call=act.in_call)
             self._last_text = ""
         log.info("  Tema: %s → %s", topic[:90], self.rules.classify(self._activity))

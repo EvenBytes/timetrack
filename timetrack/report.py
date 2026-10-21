@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, time as dtime, timedelta
 
-from .rules import AWAY_TASK, UNCLASSIFIED, RuleSet
+from .rules import AWAY_TASK, MEETING_CATEGORY, UNCLASSIFIED, RuleSet
 from .store import Activity, Store
 
 # Dos bloques de la misma tarea separados por menos de esto se fusionan en la línea temporal.
@@ -62,7 +62,10 @@ def classified(store: Store, rules: RuleSet, day: date, end_day: date | None = N
              if a.duration > 0]
     if categories:
         for act, _ in items:
-            act.category = categories.classify(act)
+            # Con el micrófono o la cámara en uso se está en una llamada, sea cual sea la ventana
+            # (el chat de Teams, el documento que se comparte…).
+            act.category = (MEETING_CATEGORY if act.in_call and not act.is_away
+                            else categories.classify(act))
     return items
 
 
@@ -131,14 +134,15 @@ def unclassified_groups(items: Classified, top: int = 50) -> list[tuple[str, str
     return [(proc, title, topic, secs) for (proc, title, topic), secs in ranked]
 
 
-def export_csv(items: Classified, out) -> None:
+def export_csv(items: Classified, out, projects=None) -> None:
     writer = csv.writer(out or sys.stdout)
-    writer.writerow(["inicio", "fin", "segundos", "tarea", "tipo", "proceso", "titulo", "tema",
-                     "url",
-                     "ocr_extracto"])
+    writer.writerow(["inicio", "fin", "segundos", "cliente", "tarea", "imputable", "tipo",
+                     "proceso", "titulo", "tema", "url", "ocr_extracto"])
     for act, task in items:
-        writer.writerow([_iso(act.start_ts), _iso(act.end_ts), round(act.duration), task,
-                         act.category, act.process, act.title, act.topic, act.url,
+        client = projects.client_of(task) if projects else ""
+        billable = ("si" if projects.billable(task) else "no") if projects else ""
+        writer.writerow([_iso(act.start_ts), _iso(act.end_ts), round(act.duration), client, task,
+                         billable, act.category, act.process, act.title, act.topic, act.url,
                          act.ocr_text[:300].replace("\n", " ")])
 
 

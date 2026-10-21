@@ -80,7 +80,12 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
   aplicación, tiempo por tarea (con su reparto por tipo), tiempo por tipo de aplicación (con su
   reparto por tarea) y lista de actividades. Pulsa una actividad para ver el texto que reconoció el OCR y, si
   quieres, crear una regla a partir de ella.
-- **Semana**: tabla por día con totales, por tarea o por tipo de aplicación.
+- **Semana**: tabla por día con totales, por tarea, por cliente o por tipo de aplicación.
+- **Proyectos**: clientes y proyectos imputables. Al crear un proyecto (nombre, cliente y, si
+  quieres, palabras clave) se generan sus reglas más evidentes: el nombre y las palabras clave en
+  el título de la ventana, en el asunto del correo y en el texto de la pantalla. Las tareas que ya
+  tenían reglas se asignan a un cliente sin tocarlas. El Día muestra el tiempo por cliente y el
+  tiempo imputable, y el CSV incluye las columnas cliente e imputable.
 - **Sin clasificar**: lo que más tiempo ocupa sin regla (día, 7 o 30 días), con un botón
   *Crear regla* que rellena el título (o el tema, en los correos).
 - **Reglas**: de tareas o de tipos de aplicación (selector arriba). Crear, editar, reordenar (↑ ↓; gana la primera que coincida) y eliminar reglas.
@@ -96,7 +101,9 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
   bloqueada cuentan como *ausente*. Mientras alguna aplicación usa el **micrófono o la cámara**
   (una reunión de Meet, Teams, Zoom…) no se pasa a ausente aunque no se toque nada; lo indica el
   mismo registro de Windows que enciende el icono de privacidad de la barra de tareas
-  (`media_keeps_present` en `config.toml`).
+  (`media_keeps_present` en `config.toml`). Ese rato se marca como *en llamada* y cuenta como
+  tipo **Reuniones**, esté en la ventana que esté (el chat de Teams, el documento que se
+  comparte…).
 - Como mucho cada **15 s** captura la ventana activa y, si la imagen cambió, extrae su texto
   con `Windows.Media.Ocr` (local, sin red). El primer OCR se hace 2 s después de cambiar de
   ventana. Solo se guarda el texto, enmascarado (emails, IBAN, números largos, contraseñas);
@@ -106,9 +113,10 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
   parámetros), un cambio de dominio abre actividad nueva, el panel muestra el dominio como
   aplicación y las reglas pueden usar el campo `url`.
 - En las aplicaciones de `[[topic.apps]]` (de momento Outlook y Gmail, reconocidas por URL o
-  título) se saca además el **tema**: la línea de letra más grande del panel de lectura, que
-  es el asunto del correo abierto. Abrir otro correo parte la actividad, y las reglas pueden
-  usar el campo `topic`.
+  título) se saca además el **tema**, el asunto del correo abierto. Gmail lo pone en el título de
+  la ventana y se toma de ahí (`title_topic`; las bandejas y carpetas quedan sin tema); en Outlook
+  es la línea de letra más grande del panel de lectura, por OCR. Abrir otro correo parte la
+  actividad, y las reglas pueden usar el campo `topic`.
 - Todo va a `data\timesheet.db` (SQLite) en bruto. La clasificación se calcula al consultar,
   así que al cambiar una regla se reclasifica también el histórico.
 - El panel solo escucha en `127.0.0.1` y no es accesible desde otros equipos.
@@ -161,6 +169,8 @@ python -m timetrack app
 - `config.toml`: intervalos, umbral de ausencia, idioma OCR, privacidad (procesos y títulos
   en los que nunca se hace OCR), puerto del panel y aplicaciones con tema (`[topic]`).
 - `rules.toml`: reglas de clasificación en tareas (editables desde el panel o a mano).
+- `projects.toml`: clientes y proyectos (editables desde el panel). Cada proyecto es una tarea
+  de `rules.toml` con el mismo nombre; no se sube al repositorio (hay un `projects.example.toml`).
 - `categories.toml`: tipos de aplicación (IA, Correo, Reuniones, Chats, Documentos,
   Desarrollo, Archivos, Web; lo demás es «Otros»). Mismo formato que `rules.toml`; es una
   clasificación paralela: dice *con qué* trabajas, las tareas dicen *para quién*.

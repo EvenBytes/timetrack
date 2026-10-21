@@ -1,0 +1,23 @@
+# Clientes y proyectos. Cada proyecto es una tarea de rules.toml (mismo nombre) con su cliente.
+# Se editan desde el panel (pestaña Proyectos) o a mano. Copia este fichero a projects.toml.
+#
+#   name      nombre del proyecto = nombre de la tarea en las reglas
+#   client    cliente al que se imputa
+#   billable  true si es imputable
+#   keywords  palabras que identifican el proyecto (además del nombre)
+
+[[clients]]
+name = "Cliente A"
+
+[[clients]]
+name = "Mi empresa"
+
+[[projects]]
+name = "Cliente A"
+client = "Cliente A"
+billable = true
+
+[[projects]]
+name = "I+D interno"
+client = "Mi empresa"
+billable = false

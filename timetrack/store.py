@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS activities (
     exe_path  TEXT NOT NULL DEFAULT '',
     title     TEXT NOT NULL DEFAULT '',
     topic     TEXT NOT NULL DEFAULT '',
-    url       TEXT NOT NULL DEFAULT ''
+    url       TEXT NOT NULL DEFAULT '',
+    in_call   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS ix_activities_start ON activities(start_ts);
 
@@ -43,6 +44,7 @@ class Activity:
     ocr_text: str = ""
     topic: str = ""
     url: str = ""   # dominio + ruta en los navegadores
+    in_call: bool = False   # micrófono o cámara en uso durante la actividad (una llamada)
     category: str = ""   # tipo de aplicación; no se guarda, lo calcula report.classified
 
     @property
@@ -68,17 +70,19 @@ class Store:
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript(_SCHEMA)
         columns = {row[1] for row in self._db.execute("PRAGMA table_info(activities)")}
-        for column in ("topic", "url"):   # bases de datos de versiones anteriores
+        for column, kind in (("topic", "TEXT NOT NULL DEFAULT ''"),   # bases de datos de
+                             ("url", "TEXT NOT NULL DEFAULT ''"),     # versiones anteriores
+                             ("in_call", "INTEGER NOT NULL DEFAULT 0")):
             if column not in columns:
-                self._db.execute(
-                    f"ALTER TABLE activities ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+                self._db.execute(f"ALTER TABLE activities ADD COLUMN {column} {kind}")
         self._db.commit()
 
     def start_activity(self, ts: float, process: str, exe_path: str, title: str,
-                       topic: str = "", url: str = "") -> int:
+                       topic: str = "", url: str = "", in_call: bool = False) -> int:
         cur = self._db.execute(
-            "INSERT INTO activities(start_ts, end_ts, process, exe_path, title, topic, url) "
-            "VALUES (?,?,?,?,?,?,?)", (ts, ts, process, exe_path, title, topic, url))
+            "INSERT INTO activities(start_ts, end_ts, process, exe_path, title, topic, url, "
+            "in_call) VALUES (?,?,?,?,?,?,?,?)",
+            (ts, ts, process, exe_path, title, topic, url, int(in_call)))
         self._db.commit()
         return cur.lastrowid
 
@@ -98,12 +102,13 @@ class Store:
     def activities_between(self, start_ts: float, end_ts: float) -> list[Activity]:
         rows = self._db.execute(
             """SELECT a.id, a.start_ts, a.end_ts, a.process, a.exe_path, a.title,
-                      COALESCE(group_concat(o.text, char(10)), ''), a.topic, a.url
+                      COALESCE(group_concat(o.text, char(10)), ''), a.topic, a.url,
+                      a.in_call
                FROM activities a LEFT JOIN ocr_samples o ON o.activity_id = a.id
                WHERE a.end_ts > ? AND a.start_ts < ?
                GROUP BY a.id ORDER BY a.start_ts""",
             (start_ts, end_ts)).fetchall()
-        acts = [Activity(*row) for row in rows]
+        acts = [Activity(*row[:9], in_call=bool(row[9])) for row in rows]
         for act in acts:   # recorta a la ventana pedida (p. ej. actividades que cruzan medianoche)
             act.start_ts = max(act.start_ts, start_ts)
             act.end_ts = min(act.end_ts, end_ts)

@@ -19,6 +19,7 @@ from .store import Activity
 
 UNCLASSIFIED = "Sin clasificar"
 OTHER_CATEGORY = "Otros"   # tipo de aplicación cuando no coincide ninguna regla
+MEETING_CATEGORY = "Reuniones"   # tipo de lo que se hace con el micrófono o la cámara en uso
 AWAY_TASK = "Ausente"
 
 

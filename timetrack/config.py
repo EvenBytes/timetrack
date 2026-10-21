@@ -57,6 +57,8 @@ class Config:
     rules_path: Path = ROOT / "rules.toml"
     # Tipos de aplicación (Correo, Chats, Documentos…): clasificación paralela a las tareas.
     categories_path: Path = ROOT / "categories.toml"
+    # Clientes y proyectos imputables (cada proyecto es una tarea de las reglas).
+    projects_path: Path = ROOT / "projects.toml"
 
     def rules_file(self, kind: str) -> Path:
         if kind not in ("tasks", "categories"):
@@ -81,6 +83,7 @@ def load_config(config_path: Path | None = None, rules_path: Path | None = None)
         topic=raw.get("topic", {}),
         rules_path=rules_path,
         categories_path=rules_path.parent / "categories.toml",
+        projects_path=rules_path.parent / "projects.toml",
     )
 
 

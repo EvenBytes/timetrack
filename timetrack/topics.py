@@ -1,9 +1,14 @@
-"""«Tema» de la actividad: el asunto del correo abierto, deducido del OCR por tamaño de letra.
+"""«Tema» de la actividad: el asunto del correo abierto.
 
 Solo se aplica a las aplicaciones de [[topic.apps]] en config.toml, reconocidas por la URL o
-por el título de la ventana (son webs: Outlook, Gmail). En cada una se busca, dentro de una zona de la
-ventana (el panel de lectura), la línea con la letra más grande; en estos clientes el asunto
-del mensaje abierto se pinta más grande que la bandeja, los botones y el cuerpo.
+por el título de la ventana (son webs: Outlook, Gmail). Hay dos formas de sacarlo:
+
+- title_topic: una regex con el grupo (?P<topic>…) sobre el título de la ventana. Gmail pone el
+  asunto en el título («asunto - email - Org Mail»), así que es la vía fiable; title_skip
+  descarta lo que no es un asunto (bandejas y carpetas: «Inbox», «Recibidos»…).
+- Si no hay title_topic, por OCR: dentro de una zona de la ventana (el panel de lectura), la
+  línea con la letra más grande; en Outlook el asunto del mensaje abierto se pinta más grande
+  que la bandeja, los botones y el cuerpo.
 """
 
 import re
@@ -15,6 +20,8 @@ from .ocr import OcrLine
 _LETTERS = re.compile(r"[^\W\d_]", re.UNICODE)
 _LEADING_SYMBOLS = re.compile(r"^[^\w(\[\"'¿¡#]+", re.UNICODE)
 _NOISE = re.compile(r"https?://|www\.|@|\[email\]", re.IGNORECASE)
+# La flecha de una etiqueta o un desplegable junto al asunto se lee como una «v» suelta.
+_TRAILING_ARROW = re.compile(r"\s+[vV˅⌄∨]$")
 
 # La línea elegida debe destacar sobre el resto; si no, no se arriesga un tema.
 _MIN_RATIO = 1.12
@@ -27,10 +34,19 @@ class TopicApp:
     title: re.Pattern | None
     url: re.Pattern | None
     area: tuple[float, float, float, float]   # x0, y0, x1, y1 como fracción de la ventana
+    title_topic: re.Pattern | None = None       # tema desde el título, grupo «topic»
+    title_skip: re.Pattern | None = None        # temas del título que no son un asunto
 
     def matches(self, title: str, url: str) -> bool:
         return bool((self.url and url and self.url.search(url))
                     or (self.title and self.title.search(title)))
+
+    def topic_from_title(self, title: str) -> str:
+        m = self.title_topic.search(title) if self.title_topic else None
+        topic = " ".join((m.group("topic") if m else "").split())
+        if not topic or (self.title_skip and self.title_skip.search(topic)):
+            return ""
+        return topic[:200]
 
 
 class TopicExtractor:
@@ -62,8 +78,8 @@ class TopicExtractor:
             if (ln.y > last.y and ln.y - last.y <= last.height * 1.8
                     and abs(ln.height - best.height) <= 1 and abs(ln.x - best.x) <= best.height):
                 parts.append(ln)
-        text = " ".join(p.text for p in parts)
-        return " ".join(_LEADING_SYMBOLS.sub("", text).split())[:200]
+        text = " ".join(_LEADING_SYMBOLS.sub("", " ".join(p.text for p in parts)).split())
+        return _TRAILING_ARROW.sub("", text)[:200]
 
 
 def _parse_app(raw: dict) -> TopicApp:
@@ -73,5 +89,10 @@ def _parse_app(raw: dict) -> TopicApp:
     title, url = raw.get("title"), raw.get("url")
     if not (title or url):
         raise ValueError(f"topic.apps «{raw.get('name')}»: falta title o url")
+    title_topic, title_skip = raw.get("title_topic"), raw.get("title_skip")
+    if title_topic and "(?P<topic>" not in title_topic:
+        raise ValueError(f"topic.apps «{raw.get('name')}»: title_topic necesita (?P<topic>…)")
     return TopicApp(name=str(raw.get("name", "")), title=re.compile(title) if title else None,
-                    url=re.compile(url) if url else None, area=area)
+                    url=re.compile(url) if url else None, area=area,
+                    title_topic=re.compile(title_topic) if title_topic else None,
+                    title_skip=re.compile(title_skip) if title_skip else None)

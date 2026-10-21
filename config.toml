@@ -37,3 +37,7 @@ name = "Gmail"
 url = '^mail\.google\.com/mail'
 title = '(?i)\bgmail\b'
 area = [0.12, 0.10, 1.0, 0.60]
+# Gmail pone el asunto en el título («asunto - email - Gmail» o «… - Empresa Mail»): se saca de
+# ahí y no del OCR. Las bandejas y carpetas no son un asunto.
+title_topic = '^(?P<topic>.+?) - [^\s@]+@[^\s@]+ - .*\b(Gmail|Mail)$'
+title_skip = '(?i)^(inbox|recibidos|bandeja de entrada|starred|destacados|snoozed|pospuestos|important|importantes|sent( mail)?|enviados|drafts|borradores|scheduled|programados|all mail|todos|spam|trash|bin|papelera|search results|resultados de (la )?b[uú]squeda|chat|spaces|espacios|meet|home|inicio)\b'
