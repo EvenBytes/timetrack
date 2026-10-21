@@ -117,7 +117,8 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
 - En las aplicaciones de `[[topic.apps]]` (de momento Outlook y Gmail, reconocidas por URL o
   título) se saca además el **tema**, el asunto del correo abierto. Gmail lo pone en el título de
   la ventana y se toma de ahí (`title_topic`; las bandejas y carpetas quedan sin tema); en Outlook
-  es la línea de letra más grande del panel de lectura, por OCR. Abrir otro correo parte la
+  se lee por OCR: es la línea de letra más grande justo encima de los botones «Reply / Reply
+  all» del panel de lectura (`anchor`), y sin esos botones en pantalla no hay correo abierto. Abrir otro correo parte la
   actividad, y las reglas pueden usar el campo `topic`.
 - Todo va a `data\timesheet.db` (SQLite) en bruto. La clasificación se calcula al consultar,
   así que al cambiar una regla se reclasifica también el histórico.
