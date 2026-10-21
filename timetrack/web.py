@@ -250,7 +250,8 @@ class _Handler(BaseHTTPRequestHandler):
     def post_api_rules_preview(self, q):
         """Qué capturaría una regla (sola, sin importar su posición) en los últimos N días."""
         body = self._body()
-        rule_set = RuleSet([_clean_rule(body.get("rule", {}))])
+        rule_set = RuleSet([_clean_rule(body.get("rule", {}))],
+                           OTHER_CATEGORY if body.get("kind") == "categories" else UNCLASSIFIED)
         day = _date(body)
         days = max(1, min(31, int(body.get("days", 7))))
         items = self.ctx.items(day - timedelta(days=days - 1), day)

@@ -302,8 +302,8 @@
         <button class="btn primary" id="rules-save" disabled>Guardar</button>
       </div>
       <p class="hint" style="margin:0">Cada regla es una lista de expresiones regulares sobre el
-        título de la ventana, una por línea: basta con que coincida una. Gana la primera regla que
-        coincida.</p>
+        título de la ventana (en las tareas, también sobre el asunto del correo), una por línea:
+        basta con que coincida una. Gana la primera regla que coincida.</p>
     </div>
     <div id="rules"></div>
     <p class="muted" id="rules-path"></p>
@@ -655,7 +655,7 @@ function previewProject() {
   const terms = [name, ...splitKw($("#pf-kw").value)].filter(Boolean);
   $("#pf-preview").textContent = !terms.length ? ""
     : !$("#pf-gen").checked ? "No se crearán reglas: asigna después las reglas que quieras en la pestaña Reglas."
-    : `Se creará una regla: ventanas cuyo título contenga ${terms.map(t => `«${t}»`).join(" o ")}, sin distinguir mayúsculas.`;
+    : `Se creará una regla: ventanas cuyo título o asunto de correo contenga ${terms.map(t => `«${t}»`).join(" o ")}, sin distinguir mayúsculas.`;
 }
 for (const id of ["#pf-name", "#pf-kw"]) $(id).oninput = previewProject;
 $("#pf-gen").onchange = previewProject;
@@ -837,7 +837,7 @@ function ruleCard(r, i) {
         if (!(await ask({title: `Eliminar la regla «${r.task || "sin nombre"}»`, text: "Se quita de la lista; el cambio se aplica al pulsar Guardar.", ok: "Eliminar", danger: true}))) return;
         state.rules.splice(i, 1); setDirty(true); renderRules();
       }}, "Eliminar")),
-    field(FIELDS.find(f => f[0] === "title"), "Títulos: una expresión regular por línea, p. ej. (?i)\\bPROJ-42\\b"),
+    field(FIELDS.find(f => f[0] === "title"), state.kind === "categories" ? "Títulos: una expresión regular por línea" : "Títulos y asunto del correo: una expresión regular por línea, p. ej. (?i)\\bPROJ-42\\b"),
     advanced(),
     preview);
   if (r._autopreview) { delete r._autopreview; runPreview(r, preview); }

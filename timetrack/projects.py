@@ -13,7 +13,7 @@ es imputable. Viven en projects.toml, junto a rules.toml:
     keywords = ["PORTAL", "proveedores"]
 
 Al crear un proyecto se genera su regla más evidente: el nombre y las palabras clave en el
-título de la ventana.
+título de la ventana o en el asunto del correo.
 """
 
 import json

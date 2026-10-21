@@ -2,7 +2,8 @@
 
 Cada regla puede tener los campos:
   process  lista de nombres de ejecutable (admite comodines: "*.exe", "Code*.exe")
-  title    lista de regex sobre el título de la ventana
+  title    lista de regex sobre el título de la ventana; en las reglas de tareas, también sobre
+           el tema (en Outlook el asunto del correo no está en el título, solo en el tema)
   topic    lista de regex sobre el tema (asunto del correo abierto)
   url      lista de regex sobre la dirección en los navegadores (dominio + ruta, sin https://)
   ocr      lista de regex sobre el texto reconocido por OCR
@@ -32,12 +33,16 @@ class Rule:
     url: list[re.Pattern] = field(default_factory=list)
     ocr: list[re.Pattern] = field(default_factory=list)
     text: list[re.Pattern] = field(default_factory=list)
+    title_includes_topic: bool = False
 
     def matches(self, act: Activity) -> bool:
         proc = act.process.lower()
         if self.process and not any(fnmatch.fnmatch(proc, p) for p in self.process):
             return False
-        if self.title and not any(r.search(act.title) for r in self.title):
+        # Cada patrón se prueba por separado contra el título y el tema, para que ^ y $ sigan
+        # refiriéndose al principio y al final de cada uno.
+        titles = (act.title, act.topic) if self.title_includes_topic and act.topic else (act.title,)
+        if self.title and not any(r.search(t) for r in self.title for t in titles):
             return False
         if self.topic and not any(r.search(act.topic) for r in self.topic):
             return False
@@ -55,6 +60,10 @@ class RuleSet:
     def __init__(self, raw_rules: list[dict], fallback: str = UNCLASSIFIED) -> None:
         self.rules = [self._parse(i, r) for i, r in enumerate(raw_rules)]
         self.fallback = fallback
+        # En las reglas de tareas el título incluye el asunto del correo; en las de tipos de
+        # aplicación no (un asunto que acabe en « - Outlook» no debe cambiar el tipo).
+        for rule in self.rules:
+            rule.title_includes_topic = fallback == UNCLASSIFIED
 
     @staticmethod
     def _parse(index: int, raw: dict) -> Rule:

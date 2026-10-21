@@ -82,13 +82,15 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
   quieres, crear una regla a partir de ella.
 - **Semana**: tabla por día con totales, por tarea, por cliente o por tipo de aplicación.
 - **Proyectos**: clientes y proyectos imputables. Al crear un proyecto (nombre, cliente y, si
-  quieres, palabras clave) se generan sus reglas más evidentes: el nombre y las palabras clave en
-  el título de la ventana, en el asunto del correo y en el texto de la pantalla. Las tareas que ya
-  tenían reglas se asignan a un cliente sin tocarlas. El Día muestra el tiempo por cliente y el
+  quieres, palabras clave) se genera su regla: el nombre o las palabras clave en el título de la
+  ventana o en el asunto del correo, sin distinguir mayúsculas; al cambiar las palabras clave se
+  actualiza. Las tareas que ya tenían reglas se asignan a un cliente sin tocarlas. El Día muestra el tiempo por cliente y el
   tiempo imputable, y el CSV incluye las columnas cliente e imputable.
 - **Sin clasificar**: lo que más tiempo ocupa sin regla (día, 7 o 30 días), con un botón
   *Crear regla* que rellena el título (o el tema, en los correos).
-- **Reglas**: de tareas o de tipos de aplicación (selector arriba). Crear, editar, reordenar (↑ ↓; gana la primera que coincida) y eliminar reglas.
+- **Reglas**: de tareas o de tipos de aplicación (selector arriba). Lo habitual es una lista de
+  expresiones regulares sobre el título (en las tareas, también sobre el asunto del correo); el
+  proceso, la URL y el texto en pantalla quedan en «Más condiciones». Crear, editar, reordenar (↑ ↓; gana la primera que coincida) y eliminar reglas.
   *Vista previa* muestra cuánto tiempo de los últimos 7 días capturaría la regla y qué tarea
   tiene ahora ese tiempo. *Guardar* valida las expresiones regulares, escribe `rules.toml` y
   se aplica al momento al registro y a todo el histórico.
