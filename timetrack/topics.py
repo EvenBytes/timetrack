@@ -36,6 +36,8 @@ class TopicApp:
     area: tuple[float, float, float, float]   # x0, y0, x1, y1 como fracción de la ventana
     title_topic: re.Pattern | None = None       # tema desde el título, grupo «topic»
     title_skip: re.Pattern | None = None        # temas del título que no son un asunto
+    no_topic: re.Pattern | None = None          # títulos de vistas sin correo abierto (calendario…)
+    strip: re.Pattern | None = None             # texto de botones pegado al asunto, a quitar
 
     def matches(self, title: str, url: str) -> bool:
         return bool((self.url and url and self.url.search(url))
@@ -56,8 +58,9 @@ class TopicExtractor:
     def app_for(self, title: str, url: str = "") -> TopicApp | None:
         return next((a for a in self.apps if a.matches(title, url)), None)
 
-    def extract(self, app: TopicApp, lines: list[OcrLine], width: int, height: int) -> str:
-        if not lines:
+    def extract(self, app: TopicApp, lines: list[OcrLine], width: int, height: int,
+                title: str = "") -> str:
+        if not lines or (app.no_topic and app.no_topic.search(title)):
             return ""
         x0, y0, x1, y1 = (app.area[0] * width, app.area[1] * height,
                           app.area[2] * width, app.area[3] * height)
@@ -79,6 +82,8 @@ class TopicExtractor:
                     and abs(ln.height - best.height) <= 1 and abs(ln.x - best.x) <= best.height):
                 parts.append(ln)
         text = " ".join(_LEADING_SYMBOLS.sub("", " ".join(p.text for p in parts)).split())
+        if app.strip:
+            text = app.strip.sub("", text).strip()
         return _TRAILING_ARROW.sub("", text)[:200]
 
 
@@ -90,9 +95,12 @@ def _parse_app(raw: dict) -> TopicApp:
     if not (title or url):
         raise ValueError(f"topic.apps «{raw.get('name')}»: falta title o url")
     title_topic, title_skip = raw.get("title_topic"), raw.get("title_skip")
+    no_topic, strip = raw.get("no_topic"), raw.get("strip")
     if title_topic and "(?P<topic>" not in title_topic:
         raise ValueError(f"topic.apps «{raw.get('name')}»: title_topic necesita (?P<topic>…)")
     return TopicApp(name=str(raw.get("name", "")), title=re.compile(title) if title else None,
                     url=re.compile(url) if url else None, area=area,
                     title_topic=re.compile(title_topic) if title_topic else None,
-                    title_skip=re.compile(title_skip) if title_skip else None)
+                    title_skip=re.compile(title_skip) if title_skip else None,
+                    no_topic=re.compile(no_topic) if no_topic else None,
+                    strip=re.compile(strip) if strip else None)

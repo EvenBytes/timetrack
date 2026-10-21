@@ -280,7 +280,8 @@ class Tracker:
 
         app = self.topics.app_for(fg.title, self._activity.url)
         if app and not app.title_topic:
-            topic = self.privacy.clean(self.topics.extract(app, lines, capture.width, capture.height))
+            topic = self.privacy.clean(self.topics.extract(app, lines, capture.width, capture.height,
+                                                           fg.title))
             self._apply_topic(topic, now)
 
         if not text or text == self._last_text:

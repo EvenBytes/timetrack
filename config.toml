@@ -30,7 +30,11 @@ open_browser_on_start = false  # abrir el panel al arrancar
 name = "Outlook"
 url = '^outlook\.(cloud\.microsoft|office\.com|office365\.com|live\.com)'
 title = '(?i)\boutlook\b'
-area = [0.30, 0.15, 1.0, 0.70]   # panel de lectura
+area = [0.40, 0.15, 1.0, 0.60]   # panel de lectura, a la derecha de la lista de correos
+# Vistas sin un correo abierto: ahí lo más grande de la pantalla no es un asunto.
+no_topic = '(?i)^(calendar|calendario|people|personas|files|archivos|to do|tareas|notes|notas|settings|configuración) - '
+# Botón que Outlook pinta en la misma línea que el asunto.
+strip = '(?i)\s+(summari[sz]e this email|resumir este correo( electrónico)?|resumen)$'
 
 [[topic.apps]]
 name = "Gmail"
