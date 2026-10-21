@@ -153,6 +153,7 @@
   .modal.open { display: flex; }
   .modal .card { width: min(900px, 100%); max-height: 85vh; overflow: auto; margin: 0; }
   .modal .card.dialog { width: min(460px, 100%); }
+  .modal p { overflow-wrap: anywhere; }   /* URLs y títulos largos no se salen del cuadro */
   .dialog p { margin: 0 0 14px; color: var(--muted); }
   .dialog .field, .dialog .check { margin-bottom: 14px; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -631,8 +632,9 @@ async function openActivity(a) {
     a.url ? el("p", {}, el("span", {class: "muted"}, "URL: "), a.url) : "",
     a.topic ? el("p", {}, el("span", {class: "muted"}, "Tema: "), el("b", {}, a.topic)) : "",
     el("p", {class: "muted"}, `${clock(a.start)} – ${clock(a.end)} · ${hm(a.end - a.start)}`),
-    d.samples.length ? d.samples.map(s => [el("div", {class: "muted"}, `OCR ${clock(s.ts)}`), el("pre", {}, s.text)])
-                     : el("div", {class: "empty"}, "No hay texto reconocido para esta actividad."));
+    // replaceChildren no aplana listas: cada muestra aporta dos nodos, se pasan sueltos.
+    ...(d.samples.length ? d.samples.flatMap(s => [el("div", {class: "muted"}, `OCR ${clock(s.ts)}`), el("pre", {}, s.text)])
+                         : [el("div", {class: "empty"}, "No hay texto reconocido para esta actividad.")]));
   $("#modal").classList.add("open");
 }
 function closeModal() { $("#modal").classList.remove("open"); }
