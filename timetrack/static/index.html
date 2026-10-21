@@ -224,7 +224,7 @@
         <span class="spacer"></span>
         <span class="hint" id="acts-count"></span>
         <label class="check"><input type="checkbox" id="acts-topic">Solo con tema</label>
-        <input type="search" id="acts-q" placeholder="Buscar en aplicación, título, tema, URL, tarea…"
+        <input type="search" id="acts-q" placeholder="Buscar: título, cliente, tarea…" title="Busca en aplicación, título, tema, URL, cliente, tarea y tipo"
                style="width:300px"></div>
       <div id="acts"></div>
     </div>
@@ -536,7 +536,8 @@ function renderTotals(d) {
       el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Tipos de aplicación"), el("th", {}, "Aplicaciones principales"))),
     el("tbody", {}, d.totals.map(t => el("tr", {},
       el("td", {}, chip(t.task)),
-      el("td", {class: "muted", style: "white-space:nowrap"}, t.client ? `${t.client}${t.billable ? "" : " · no imputable"}` : ""),
+      el("td", {style: "white-space:nowrap"}, t.client ? chip(t.client) : "",
+        t.client && !t.billable ? el("span", {class: "badge", style: "margin-left:6px"}, "No imputable") : ""),
       el("td", {class: "num"}, hm(t.seconds)),
       el("td", {class: "num"}, d.worked ? `${(100 * t.seconds / d.worked).toFixed(0)} %` : ""),
       el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * t.seconds / max}%;background:${color(t.task)}`}))),
@@ -597,13 +598,13 @@ function renderActivities(d) {
   const words = fold($("#acts-q").value).split(/\s+/).filter(Boolean);
   const onlyTopic = $("#acts-topic").checked;
   const rows = all.filter(a => (!onlyTopic || a.topic) && words.every(w =>
-    fold(`${a.app} ${a.process} ${a.title} ${a.topic} ${a.url} ${a.task} ${a.category}`).includes(w)));
+    fold(`${a.app} ${a.process} ${a.title} ${a.topic} ${a.url} ${a.client} ${a.task} ${a.category}`).includes(w)));
   $("#acts-count").textContent = words.length || onlyTopic ? `${rows.length} de ${all.length}` : "";
   if (!rows.length) return box.replaceChildren(el("div", {class: "empty"},
     all.length ? "Ninguna actividad coincide con la búsqueda." : "Sin actividades."));
   box.replaceChildren(el("table", {},
     el("thead", {}, el("tr", {}, el("th", {}, "Hora"), el("th", {class: "num"}, "Duración"),
-      el("th", {}, "Aplicación"), el("th", {}, "Título"), el("th", {}, "Tipo"), el("th", {}, "Tarea"))),
+      el("th", {}, "Aplicación"), el("th", {}, "Título"), el("th", {}, "Tipo"), el("th", {}, "Cliente"), el("th", {}, "Tarea"))),
     el("tbody", {}, rows.map(a => el("tr", {class: "click", onclick: () => openActivity(a)},
       el("td", {class: "num"}, clock(a.start)),
       el("td", {class: "num"}, hm(a.end - a.start)),
@@ -613,6 +614,7 @@ function renderActivities(d) {
         a.in_call ? el("span", {class: "muted"}, "  · en llamada") : "",
         a.has_ocr ? "" : el("span", {class: "muted"}, "  · sin OCR")),
       el("td", {}, chip(a.category)),
+      el("td", {}, a.client ? chip(a.client) : ""),
       el("td", {}, chip(a.task)))))));
 }
 
@@ -620,7 +622,7 @@ async function openActivity(a) {
   const d = await api(`/api/activity?id=${a.id}`);
   $("#modal-body").replaceChildren(
     el("div", {class: "row", style: "margin-bottom:8px"},
-      el("h2", {style: "margin:0"}, a.app), chip(a.task), chip(a.category),
+      el("h2", {style: "margin:0"}, a.app), a.client ? chip(a.client) : "", chip(a.task), chip(a.category),
       a.in_call ? el("span", {class: "badge"}, "En llamada") : "",
       el("span", {class: "spacer"}),
       el("button", {class: "btn", onclick: () => { closeModal(); newRuleFrom(a.title, a.topic); }}, "Crear regla"),

@@ -195,7 +195,7 @@ class _Handler(BaseHTTPRequestHandler):
                             "apps": _ranked(c.apps)} for c in report.category_totals(items)],
             "blocks": [_block(b) for b in report.timeline(items)],
             "category_blocks": [_block(b) for b in report.timeline(items, by="category")],
-            "activities": [_activity(a, task) for a, task in items],
+            "activities": [_activity(a, task, projects.client_of(task)) for a, task in items],
         })
 
     def get_api_week(self, q):
@@ -418,8 +418,8 @@ def _block(b: report.Block) -> dict:
     return {"task": b.task, "start": b.start_ts, "end": b.end_ts, "apps": _ranked(b.apps)}
 
 
-def _activity(a, task: str) -> dict:
-    return {"id": a.id, "start": a.start_ts, "end": a.end_ts, "process": a.process,
+def _activity(a, task: str, client: str = "") -> dict:
+    return {"id": a.id, "start": a.start_ts, "end": a.end_ts, "process": a.process, "client": client,
             "app": a.app, "url": a.url, "title": a.title, "topic": a.topic, "task": task, "category": a.category, "has_ocr": bool(a.ocr_text), "in_call": a.in_call,
             "unclassified": task == UNCLASSIFIED}
 
