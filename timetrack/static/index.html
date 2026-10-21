@@ -7,14 +7,14 @@
 <style>
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --line: #e4e7ec;
-    --accent: #3b5bdb; --accent-soft: #e7ecff; --warn: #b54708; --warn-soft: #fef0c7;
+    --accent: #3b5bdb; --accent-soft: #e7ecff; --on-accent: #ffffff; --warn: #b54708; --warn-soft: #fef0c7;
     --ok: #067647; --ok-soft: #dcfae6; --danger: #b42318; --away: #d0d5dd;
     --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #11141a; --panel: #1a1f29; --text: #e6e9ef; --muted: #98a2b3; --line: #2b3240;
-      --accent: #7c93ff; --accent-soft: #252d4a; --warn: #fdb022; --warn-soft: #3a2c10;
+      --accent: #7c93ff; --accent-soft: #252d4a; --on-accent: #0e1424; --warn: #fdb022; --warn-soft: #3a2c10;
       --ok: #47cd89; --ok-soft: #12321f; --danger: #f97066; --away: #3a4150;
       --shadow: none;
     }
@@ -42,18 +42,42 @@
           box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
   h2 { font-size: 15px; margin: 0 0 12px; }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  button.btn { border: 1px solid var(--line); background: var(--panel); color: var(--text);
-               padding: 6px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
-  button.btn:hover { border-color: var(--accent); }
-  button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
-  button.icon-btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.danger { color: var(--danger); }
-  button:disabled { opacity: .5; cursor: default; }
-  input, textarea { font: inherit; color: var(--text); background: var(--bg);
-                    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
-  textarea { width: 100%; resize: vertical; min-height: 34px; font-family: Consolas, monospace;
-             font-size: 13px; }
+  /* --- Controles. Botones, desplegables y campos comparten borde, radio, fondo y altura. --- */
+  .btn, select, input:not([type=checkbox]), textarea {
+    font: inherit; color: var(--text); background-color: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; }
+  .btn, select, input:not([type=checkbox]) { height: 32px; padding: 0 10px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+         padding: 0 12px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .btn:hover, select:hover { border-color: var(--accent); }
+  .btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+  .btn.primary { background-color: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.danger { color: var(--danger); }
+  .btn.danger:hover { border-color: var(--danger); }
+  .btn:disabled { opacity: .5; cursor: default; border-color: var(--line); }
+  select { appearance: none; padding-right: 30px; cursor: pointer; background-repeat: no-repeat;
+           background-position: right 10px center; background-size: 10px 6px;
+           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23667085' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  textarea { display: block; width: 100%; padding: 6px 10px; resize: vertical; min-height: 32px;
+             font-family: Consolas, monospace; font-size: 13px; }
+  input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent);
+                         cursor: pointer; flex: none; }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible,
+  nav button:focus-visible, summary:focus-visible {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  /* Etiquetas: .field apila texto y control; .check pone la casilla delante del texto;
+     .inline pone el texto delante del control en la misma línea. */
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .field > input, .field > select { width: 100%; font-size: 14px; color: var(--text); }
+  .check, .inline { display: inline-flex; align-items: center; gap: 8px; min-height: 32px;
+                    color: var(--muted); white-space: nowrap; }
+  .check { cursor: pointer; user-select: none; }
+  /* Cabecera de tarjeta: título, ayuda y herramientas a la derecha. */
+  .card-head { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap;
+               margin-bottom: 12px; }
+  .card-head h2 { margin: 0; }
+  .hint { color: var(--muted); font-size: 13px; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
          padding: 12px 16px; box-shadow: var(--shadow); }
@@ -62,13 +86,11 @@
   .muted { color: var(--muted); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line);
-           vertical-align: top; }
+           vertical-align: middle; }
   th { font-weight: 600; color: var(--muted); font-size: 12px; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr.click { cursor: pointer; }
   tr.click:hover td { background: var(--accent-soft); }
-  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px;
-            margin-right: 8px; vertical-align: -1px; }
   .meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden;
            min-width: 80px; }
   .meter > div { height: 100%; }
@@ -85,9 +107,11 @@
   .tip { position: fixed; z-index: 20; pointer-events: none; background: var(--text);
          color: var(--panel); padding: 6px 8px; border-radius: 6px; font-size: 12px;
          max-width: 360px; display: none; }
-  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px;
-          background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
-  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  /* Badge: un estado o un recuento («0 reglas»). Para nombres (tarea, tipo, cliente), .chip. */
+  .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+           border-radius: 999px; font-size: 12px; background: var(--bg); color: var(--muted);
+           border: 1px solid var(--line); white-space: nowrap; }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
   /* Chip de tarea o tipo: punto de color y nombre en una sola pieza que no se parte en dos. */
   .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
           padding: 2px 9px 2px 7px; border-radius: 999px; font-size: 12.5px; line-height: 18px;
@@ -97,36 +121,41 @@
   .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c);
                   flex: none; }
   .chip > span { overflow: hidden; text-overflow: ellipsis; }
-  .proj-form { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr auto auto auto; gap: 10px;
+  .cdot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+  .proj-form { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr auto auto auto; gap: 12px;
                align-items: end; }
-  .proj-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px;
-                     color: var(--muted); }
-  .proj-form label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px;
-                           white-space: nowrap; }
-  .proj-form input:not([type=checkbox]) { width: 100%; box-sizing: border-box; }
   @media (max-width: 900px) { .proj-form { grid-template-columns: 1fr; } }
-  .client-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
-  .client-head h2 { margin: 0; }
-  td input.kw { width: 100%; box-sizing: border-box; }
+  td input.kw, td input.client { width: 100%; }
+  table.fixed { table-layout: fixed; }
+  table.fixed td:first-child .chip { max-width: 100%; }
+  td > input, td > .btn { vertical-align: middle; }
+  .actions { display: inline-flex; gap: 6px; }
   .rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
           background: var(--panel); }
   .rule.dirty { border-color: var(--accent); }
   .rule-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .rule-head input { flex: 1; font-weight: 600; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
-  .fields label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
   details.more { margin-top: 8px; }
   details.more summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
   .preview { margin-top: 10px; font-size: 13px; }
   .preview table td { padding: 4px 6px; }
   .idx { color: var(--muted); font-variant-numeric: tabular-nums; width: 24px; }
-  .msg { padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; display: none; }
-  .msg.err { display: block; background: #fee4e2; color: #912018; }
-  .msg.ok { display: block; background: var(--ok-soft); color: var(--ok); }
+  /* Avisos: abajo a la derecha, se van solos (los de error tardan más). */
+  .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: flex;
+            flex-direction: column; gap: 8px; max-width: min(440px, calc(100vw - 32px)); }
+  .toast { padding: 10px 14px; border-radius: 8px; background: var(--panel); color: var(--text);
+           border: 1px solid var(--line); border-left: 4px solid var(--ok); font-size: 13px;
+           box-shadow: 0 4px 16px rgba(16,24,40,.16); }
+  .toast.err { border-left-color: var(--danger); }
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
            align-items: center; justify-content: center; z-index: 30; padding: 16px; }
   .modal.open { display: flex; }
   .modal .card { width: min(900px, 100%); max-height: 85vh; overflow: auto; margin: 0; }
+  .modal .card.dialog { width: min(460px, 100%); }
+  .dialog p { margin: 0 0 14px; color: var(--muted); }
+  .dialog .field, .dialog .check { margin-bottom: 14px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
   pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 10px;
         border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; max-height: 320px;
         overflow: auto; }
@@ -150,18 +179,18 @@
     </nav>
     <div class="spacer"></div>
     <div class="status"><span class="dot" id="st-dot"></span><span id="st-text">…</span></div>
-    <button class="btn icon-btn" id="st-toggle"><svg viewBox="0 0 16 16" aria-hidden="true"></svg><span>Pausar</span></button>
+    <button class="btn" id="st-toggle"><svg viewBox="0 0 16 16" aria-hidden="true"></svg><span>Pausar</span></button>
   </div>
 </header>
 
 <main>
-  <div class="row card" style="padding:10px 16px">
-    <button class="btn" id="prev" title="Día anterior">◀</button>
+  <div class="row card" id="datebar" style="padding:10px 16px">
+    <button class="btn" id="prev" title="Anterior" aria-label="Anterior">‹</button>
     <input type="date" id="date">
-    <button class="btn" id="next" title="Día siguiente">▶</button>
+    <button class="btn" id="next" title="Siguiente" aria-label="Siguiente">›</button>
     <button class="btn" id="today">Hoy</button>
     <span class="spacer"></span>
-    <a id="csv" class="btn" style="text-decoration:none;color:inherit;border:1px solid var(--line);padding:6px 12px;border-radius:6px">Exportar CSV</a>
+    <a id="csv" class="btn">Exportar CSV</a>
   </div>
 
   <!-- DÍA -->
@@ -190,13 +219,13 @@
       <div id="cats"></div>
     </div>
     <div class="card">
-      <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Actividades</h2>
-        <span class="muted">Pulsa una fila para ver el texto reconocido</span>
-        <span style="flex:1"></span>
-        <label class="muted"><input type="checkbox" id="acts-topic"> Solo con tema</label>
+      <div class="card-head"><h2>Actividades</h2>
+        <span class="hint">Pulsa una fila para ver el texto reconocido</span>
+        <span class="spacer"></span>
+        <span class="hint" id="acts-count"></span>
+        <label class="check"><input type="checkbox" id="acts-topic">Solo con tema</label>
         <input type="search" id="acts-q" placeholder="Buscar en aplicación, título, tema, URL, tarea…"
-               style="width:320px">
-        <span class="muted" id="acts-count"></span></div>
+               style="width:300px"></div>
       <div id="acts"></div>
     </div>
   </section>
@@ -204,14 +233,14 @@
   <!-- SEMANA -->
   <section id="tab-week" class="hidden">
     <div class="card">
-      <div class="row" style="margin-bottom:10px">
-        <h2 id="week-title" style="margin:0">Semana</h2>
+      <div class="card-head">
+        <h2 id="week-title">Semana</h2>
         <span class="spacer"></span>
-        <span class="muted">Ver por:</span>
-        <select id="week-by" class="btn">
-          <option value="task">Tarea</option><option value="client">Cliente</option>
-          <option value="category">Tipo de aplicación</option>
-        </select>
+        <label class="inline">Ver por
+          <select id="week-by">
+            <option value="task">Tarea</option><option value="client">Cliente</option>
+            <option value="category">Tipo de aplicación</option>
+          </select></label>
       </div>
       <div id="week"></div>
     </div>
@@ -220,13 +249,15 @@
   <!-- SIN CLASIFICAR -->
   <section id="tab-pending" class="hidden">
     <div class="card">
-      <div class="row" style="margin-bottom:10px">
-        <h2 style="margin:0">Sin clasificar</h2>
-        <span class="muted">Período:</span>
-        <select id="pend-days" class="btn">
-          <option value="1">el día</option><option value="7" selected>7 días</option>
-          <option value="30">30 días</option>
-        </select>
+      <div class="card-head">
+        <h2>Sin clasificar</h2>
+        <span class="hint">Lo que más tiempo ocupa sin regla</span>
+        <span class="spacer"></span>
+        <label class="inline">Período
+          <select id="pend-days">
+            <option value="1">El día</option><option value="7" selected>7 días</option>
+            <option value="30">30 días</option>
+          </select></label>
       </div>
       <div id="pending"></div>
     </div>
@@ -234,25 +265,24 @@
 
   <!-- PROYECTOS -->
   <section id="tab-projects" class="hidden">
-    <div id="proj-msg" class="msg"></div>
     <div class="card">
-      <h2>Nuevo proyecto</h2>
+      <div class="card-head"><h2>Nuevo proyecto</h2></div>
       <div class="proj-form">
-        <label>Proyecto<input id="pf-name"></label>
-        <label>Cliente<input id="pf-client" list="client-list"></label>
-        <label>Palabras clave (separadas por comas, sin distinguir mayúsculas)<input id="pf-kw"></label>
-        <label class="check"><input type="checkbox" id="pf-bill" checked> Imputable</label>
-        <label class="check"><input type="checkbox" id="pf-gen" checked> Crear reglas</label>
+        <label class="field">Proyecto<input id="pf-name"></label>
+        <label class="field">Cliente<input id="pf-client" list="client-list"></label>
+        <label class="field">Palabras clave, separadas por comas<input id="pf-kw"></label>
+        <label class="check"><input type="checkbox" id="pf-bill" checked>Imputable</label>
+        <label class="check"><input type="checkbox" id="pf-gen" checked>Crear regla</label>
         <button class="btn primary" id="pf-create">Crear proyecto</button>
       </div>
-      <p class="muted" id="pf-preview" style="margin:10px 0 0"></p>
+      <p class="hint" id="pf-preview" style="margin:10px 0 0"></p>
       <datalist id="client-list"></datalist>
     </div>
     <div id="proj-list"></div>
     <div class="card">
-      <h2>Tareas sin proyecto</h2>
-      <p class="muted" style="margin-top:0">Tareas de las reglas que todavía no tienen cliente.
-        Asígnales uno para que cuenten en el informe por cliente; sus reglas no cambian.</p>
+      <div class="card-head"><h2>Tareas sin proyecto</h2>
+        <span class="hint">Asígnales un cliente para que cuenten en el informe por cliente; sus
+          reglas no cambian.</span></div>
       <div id="proj-unassigned"></div>
     </div>
     <p class="muted" id="proj-path"></p>
@@ -260,17 +290,20 @@
 
   <!-- REGLAS -->
   <section id="tab-rules" class="hidden">
-    <div id="rules-msg" class="msg"></div>
-    <div class="card row" style="padding:10px 16px">
-      <select id="rules-kind" class="btn" title="Qué reglas editar">
-        <option value="tasks">Tareas</option><option value="categories">Tipos de aplicación</option>
-      </select>
-      <span class="muted">Cada regla es una lista de expresiones regulares sobre el título de la
-        ventana, una por línea: basta con que coincida una. Gana la primera regla que coincida.</span>
-      <span class="spacer"></span>
-      <button class="btn" id="rule-add">+ Nueva regla</button>
-      <button class="btn" id="rules-reload">Descartar cambios</button>
-      <button class="btn primary" id="rules-save" disabled>Guardar</button>
+    <div class="card">
+      <div class="card-head">
+        <label class="inline">Reglas de
+          <select id="rules-kind">
+            <option value="tasks">Tareas</option><option value="categories">Tipos de aplicación</option>
+          </select></label>
+        <span class="spacer"></span>
+        <button class="btn" id="rule-add">+ Nueva regla</button>
+        <button class="btn" id="rules-reload">Descartar cambios</button>
+        <button class="btn primary" id="rules-save" disabled>Guardar</button>
+      </div>
+      <p class="hint" style="margin:0">Cada regla es una lista de expresiones regulares sobre el
+        título de la ventana, una por línea: basta con que coincida una. Gana la primera regla que
+        coincida.</p>
     </div>
     <div id="rules"></div>
     <p class="muted" id="rules-path"></p>
@@ -279,6 +312,8 @@
 
 <div class="tip" id="tip"></div>
 <div class="modal" id="modal"><div class="card" id="modal-body"></div></div>
+<div class="modal" id="dialog"><div class="card dialog" id="dialog-body"></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
 "use strict";
@@ -317,6 +352,41 @@ function el(tag, attrs = {}, ...kids) {
   for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(k));
   return e;
 }
+// Aviso breve abajo a la derecha. Sin ok, es un error.
+function toast(text, ok = false) {
+  const t = el("div", {class: "toast" + (ok ? "" : " err"), role: ok ? "status" : "alert"}, text);
+  $("#toasts").append(t);
+  setTimeout(() => t.remove(), ok ? 3500 : 7000);
+}
+
+// Diálogo propio en lugar de los del navegador: mismo aspecto que el resto del panel.
+// Devuelve null si se cancela; si no, {value, checked}.
+function ask({title, text = "", ok = "Aceptar", danger = false, input = null, check = null}) {
+  return new Promise(resolve => {
+    const box = $("#dialog");
+    const field = input === null ? null : el("input", {value: input});
+    const tick = check === null ? null : el("input", {type: "checkbox"});
+    const close = result => { box.classList.remove("open"); box.onkeydown = null; resolve(result); };
+    const accept = () => close({value: field ? field.value.trim() : "", checked: tick ? tick.checked : false});
+    $("#dialog-body").replaceChildren(
+      el("div", {class: "card-head"}, el("h2", {}, title)),
+      text ? el("p", {}, text) : "",
+      field ? el("label", {class: "field"}, "Nombre", field) : "",
+      tick ? el("label", {class: "check"}, tick, check) : "",
+      el("div", {class: "dialog-actions"},
+        el("button", {class: "btn", onclick: () => close(null)}, "Cancelar"),
+        el("button", {class: "btn " + (danger ? "danger" : "primary"), onclick: accept}, ok)));
+    box.onclick = e => { if (e.target === box) close(null); };
+    box.onkeydown = e => {
+      if (e.key === "Escape") { e.stopPropagation(); close(null); }
+      if (e.key === "Enter" && field) accept();
+    };
+    box.classList.add("open");
+    (field || $("#dialog-body .dialog-actions .btn:last-child")).focus();
+  });
+}
+const confirmDiscard = () => ask({title: "Cambios sin guardar", text: "Hay cambios en las reglas sin guardar. ¿Descartarlos?", ok: "Descartar", danger: true});
+
 function chip(name) {
   return el("span", {class: "chip", style: `--c:${color(name)}`, title: name}, el("span", {}, name));
 }
@@ -365,9 +435,12 @@ $("#st-toggle").onclick = async () => {
 
 // ---------- navegación ----------
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => switchTab(b.dataset.tab);
-function switchTab(tab, reload = true) {
-  if (state.tab === "rules" && tab !== "rules" && state.dirty && !confirm("Hay cambios en las reglas sin guardar. ¿Salir igualmente?")) return;
+async function switchTab(tab, reload = true) {
+  if (state.tab === "rules" && tab !== "rules" && state.dirty && !(await confirmDiscard())) return;
+  if (state.tab === "rules" && tab !== "rules") setDirty(false);
   state.tab = tab;
+  // Proyectos y reglas no dependen del día elegido.
+  $("#datebar").classList.toggle("hidden", tab === "projects" || tab === "rules");
   for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("active", b.dataset.tab === tab);
   for (const s of document.querySelectorAll("main > section")) s.classList.toggle("hidden", s.id !== "tab-" + tab);
   if (reload) load();
@@ -387,7 +460,7 @@ function load() {
   ({ day: loadDay, week: loadWeek, pending: loadPending, projects: loadProjects, rules: loadRules })[state.tab]().catch(showError);
 }
 function weekStart(d) { const x = new Date(d + "T12:00:00"); return addDays(d, -((x.getDay() + 6) % 7)); }
-function showError(e) { console.error(e); alert(e.message); }
+function showError(e) { console.error(e); toast(e.message); }
 
 // ---------- día ----------
 async function loadDay() {
@@ -547,8 +620,8 @@ async function openActivity(a) {
   const d = await api(`/api/activity?id=${a.id}`);
   $("#modal-body").replaceChildren(
     el("div", {class: "row", style: "margin-bottom:8px"},
-      el("h2", {style: "margin:0"}, a.app), el("span", {class: "pill" + (a.unclassified ? " warn" : "")}, a.task),
-      el("span", {class: "pill"}, a.category),
+      el("h2", {style: "margin:0"}, a.app), chip(a.task), chip(a.category),
+      a.in_call ? el("span", {class: "badge"}, "En llamada") : "",
       el("span", {class: "spacer"}),
       el("button", {class: "btn", onclick: () => { closeModal(); newRuleFrom(a.title, a.topic); }}, "Crear regla"),
       el("button", {class: "btn", onclick: closeModal}, "Cerrar")),
@@ -562,13 +635,9 @@ async function openActivity(a) {
 }
 function closeModal() { $("#modal").classList.remove("open"); }
 $("#modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#dialog").classList.contains("open")) closeModal(); });
 
 // ---------- proyectos ----------
-function projMsg(text, ok) {
-  const m = $("#proj-msg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "err");
-  if (ok) setTimeout(() => m.className = "msg", 4000);
-}
 const splitKw = v => v.split(",").map(x => x.trim()).filter(Boolean);
 
 async function loadProjects() {
@@ -584,7 +653,7 @@ function previewProject() {
   const terms = [name, ...splitKw($("#pf-kw").value)].filter(Boolean);
   $("#pf-preview").textContent = !terms.length ? ""
     : !$("#pf-gen").checked ? "No se crearán reglas: asigna después las reglas que quieras en la pestaña Reglas."
-    : `Se creará una regla: ventanas cuyo título contenga ${terms.map(t => `«${t}»`).join(" o ")}.`;
+    : `Se creará una regla: ventanas cuyo título contenga ${terms.map(t => `«${t}»`).join(" o ")}, sin distinguir mayúsculas.`;
 }
 for (const id of ["#pf-name", "#pf-kw"]) $(id).oninput = previewProject;
 $("#pf-gen").onchange = previewProject;
@@ -593,30 +662,33 @@ $("#pf-create").onclick = async () => {
   const body = {name: $("#pf-name").value.trim(), client: $("#pf-client").value.trim(),
                 keywords: splitKw($("#pf-kw").value), billable: $("#pf-bill").checked,
                 generate: $("#pf-gen").checked};
-  if (!body.name || !body.client) return projMsg("Indica el nombre del proyecto y el cliente.");
+  if (!body.name || !body.client) return toast("Indica el nombre del proyecto y el cliente.");
   try {
     const r = await post("/api/projects", body);
-    projMsg(`Proyecto «${body.name}» creado${r.rules_added ? " con su regla" : ""}. Se aplica ya al registro y al histórico.`, true);
+    toast(`Proyecto «${body.name}» creado${r.rules_added ? " con su regla" : ""}. Se aplica ya al registro y al histórico.`, true);
     $("#pf-name").value = ""; $("#pf-kw").value = "";
     await loadProjects();
-  } catch (e) { projMsg(e.message); }
+  } catch (e) { toast(e.message); }
 };
 
 async function updateProject(p, changes) {
   try {
     await api("/api/projects", {method: "PUT", body: JSON.stringify({...p, ...changes, old_name: p.name})});
-    projMsg("Guardado.", true);
-  } catch (e) { projMsg(e.message); }
+    toast("Guardado.", true);
+  } catch (e) { toast(e.message); }
   await loadProjects();
 }
 
 async function deleteProject(p) {
-  if (!confirm(`¿Eliminar el proyecto «${p.name}»?`)) return;
-  const delete_rules = p.rules > 0 && confirm(`¿Eliminar también sus ${p.rules} reglas? Si no, la tarea seguirá existiendo sin cliente.`);
+  const answer = await ask({title: `Eliminar «${p.name}»`, ok: "Eliminar", danger: true,
+    text: "El proyecto deja de tener cliente. Si conservas sus reglas, la tarea sigue existiendo como tarea sin proyecto.",
+    check: p.rules ? `Eliminar también sus ${p.rules === 1 ? "regla" : `${p.rules} reglas`}` : null});
+  if (!answer) return;
+  const delete_rules = answer.checked;
   try {
     const r = await post("/api/projects/delete", {name: p.name, delete_rules});
-    projMsg(`Proyecto eliminado${r.rules_removed ? ` junto con ${r.rules_removed} reglas` : ""}.`, true);
-  } catch (e) { projMsg(e.message); }
+    toast(`Proyecto eliminado${r.rules_removed ? ` junto con ${r.rules_removed} reglas` : ""}.`, true);
+  } catch (e) { toast(e.message); }
   await loadProjects();
 }
 
@@ -627,33 +699,36 @@ function renderProjects() {
   $("#proj-list").replaceChildren(...[...byClient].map(([client, projects]) => {
     const total = projects.reduce((a, p) => a + p.seconds_30d, 0);
     return el("div", {class: "card"},
-      el("div", {class: "client-head"}, chip(client), el("span", {class: "muted"},
+      el("div", {class: "card-head"}, chip(client), el("span", {class: "hint"},
         `${projects.length} proyecto${projects.length === 1 ? "" : "s"} · ${hm(total)} en 30 días`),
         projects.length ? "" : [el("span", {class: "spacer"}), el("button", {class: "btn danger", onclick: async () => {
-          if (!confirm(`¿Eliminar el cliente «${client}»?`)) return;
-          try { await post("/api/clients/delete", {name: client}); projMsg("Cliente eliminado.", true); }
-          catch (e) { projMsg(e.message); }
+          if (!(await ask({title: `Eliminar el cliente «${client}»`, ok: "Eliminar", danger: true}))) return;
+          try { await post("/api/clients/delete", {name: client}); toast("Cliente eliminado.", true); }
+          catch (e) { toast(e.message); }
           await loadProjects();
         }}, "Eliminar cliente")]),
       !projects.length ? el("div", {class: "empty"}, "Sin proyectos.") :
-      el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Proyecto"), el("th", {}, "Cliente"),
-          el("th", {}, "Palabras clave"), el("th", {}, "Imputable"), el("th", {class: "num"}, "Reglas"),
-          el("th", {class: "num"}, "30 días"), el("th", {}, ""))),
+      el("table", {class: "fixed"},
+        el("thead", {}, el("tr", {}, el("th", {style: "width:24%"}, "Proyecto"), el("th", {style: "width:15%"}, "Cliente"),
+          el("th", {}, "Palabras clave"), el("th", {style: "width:84px"}, "Imputable"), el("th", {class: "num", style: "width:64px"}, "Reglas"),
+          el("th", {class: "num", style: "width:84px"}, "30 días"), el("th", {style: "width:200px"}, ""))),
         el("tbody", {}, projects.map(p => el("tr", {},
           el("td", {}, chip(p.name)),
-          el("td", {}, el("input", {value: p.client, list: "client-list", style: "width:140px",
+          el("td", {}, el("input", {class: "client", value: p.client, list: "client-list",
             onchange: e => e.target.value.trim() && updateProject(p, {client: e.target.value.trim()})})),
           el("td", {style: "width:35%"}, el("input", {class: "kw", value: p.keywords.join(", "), placeholder: "—",
             title: "Separadas por comas. Se buscan en el título de la ventana, sin distinguir mayúsculas; al cambiarlas se actualiza la regla del proyecto",
             onchange: e => updateProject(p, {keywords: splitKw(e.target.value)})})),
           el("td", {}, el("input", {type: "checkbox", checked: p.billable,
             onchange: e => updateProject(p, {billable: e.target.checked})})),
-          el("td", {class: "num"}, p.rules ? String(p.rules) : el("span", {class: "pill warn"}, "0")),
+          el("td", {class: "num"}, p.rules ? String(p.rules) : el("span", {class: "badge warn", title: "Sin reglas: no recibirá tiempo"}, "0")),
           el("td", {class: "num"}, p.seconds_30d ? hm(p.seconds_30d) : "–"),
-          el("td", {class: "num", style: "white-space:nowrap"},
-            el("button", {class: "btn", onclick: () => { const n = prompt("Nuevo nombre del proyecto (renombra también sus reglas):", p.name); if (n && n.trim() !== p.name) updateProject(p, {name: n.trim()}); }}, "Renombrar"), " ",
-            el("button", {class: "btn danger", onclick: () => deleteProject(p)}, "Eliminar")))))));
+          el("td", {class: "num"}, el("div", {class: "actions"},
+            el("button", {class: "btn", onclick: async () => {
+              const a = await ask({title: "Renombrar proyecto", text: "También se renombra la tarea en sus reglas.", input: p.name, ok: "Renombrar"});
+              if (a && a.value && a.value !== p.name) updateProject(p, {name: a.value});
+            }}, "Renombrar"),
+            el("button", {class: "btn danger", onclick: () => deleteProject(p)}, "Eliminar"))))))));
   }));
   const un = r.unassigned;
   $("#proj-unassigned").replaceChildren(!un.length ? el("div", {class: "empty"}, "Todas las tareas tienen proyecto.") :
@@ -664,13 +739,13 @@ function renderProjects() {
         el("td", {}, chip(t.task)),
         el("td", {class: "num"}, t.seconds_30d ? hm(t.seconds_30d) : "–"),
         el("td", {}, client),
-        el("td", {}, el("label", {class: "muted"}, bill, " Imputable")),
+        el("td", {}, el("label", {class: "check"}, bill, "Imputable")),
         el("td", {class: "num"}, el("button", {class: "btn", onclick: async () => {
-          if (!client.value.trim()) return projMsg(`Indica el cliente de «${t.task}».`);
+          if (!client.value.trim()) return toast(`Indica el cliente de «${t.task}».`);
           try {
             await post("/api/projects", {name: t.task, client: client.value.trim(), billable: bill.checked, generate: false});
-            projMsg(`«${t.task}» asignado a ${client.value.trim()}.`, true);
-          } catch (e) { projMsg(e.message); }
+            toast(`«${t.task}» asignado a ${client.value.trim()}.`, true);
+          } catch (e) { toast(e.message); }
           await loadProjects();
         }}, "Asignar")));
     }))));
@@ -720,7 +795,6 @@ async function loadRules(force = false) {
   renderRules();
 }
 function setDirty(v) { state.dirty = v; $("#rules-save").disabled = !v; }
-function msg(text, ok) { const m = $("#rules-msg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "err"); if (ok) setTimeout(() => m.className = "msg", 3000); }
 
 function renderRules() {
   const box = $("#rules");
@@ -731,8 +805,7 @@ function renderRules() {
 function ruleCard(r, i) {
   const card = el("div", {class: "rule" + (r._dirty ? " dirty" : "")});
   const touch = () => { r._dirty = true; card.classList.add("dirty"); setDirty(true); };
-  const field = ([key, label, ph], text = label) => el("div", {},
-    el("label", {}, text),
+  const field = ([key, label], text = label) => el("label", {class: "field"}, text,
     el("textarea", {rows: Math.max(1, (r[key] || []).length),
       oninput: e => { r[key] = e.target.value.split("\n"); touch(); }}, (r[key] || []).join("\n")));
   // Lo habitual es filtrar solo por el título; el resto de condiciones quedan plegadas salvo
@@ -753,12 +826,15 @@ function ruleCard(r, i) {
   card.append(
     el("div", {class: "rule-head"},
       el("span", {class: "idx"}, `${i + 1}.`),
-      el("span", {class: "swatch", style: `background:${color(r.task || "")}`}),
+      el("span", {class: "cdot", style: `--c:${color(r.task || "")}`}),
       el("input", {value: r.task || "", placeholder: state.kind === "categories" ? "Tipo de aplicación (Correo, Chats…)" : "Nombre de la tarea", oninput: e => { r.task = e.target.value; touch(); }}),
       el("button", {class: "btn", title: "Subir prioridad", onclick: () => move(-1)}, "↑"),
       el("button", {class: "btn", title: "Bajar prioridad", onclick: () => move(1)}, "↓"),
       el("button", {class: "btn", onclick: () => runPreview(r, preview)}, "Vista previa"),
-      el("button", {class: "btn danger", onclick: () => { if (confirm(`¿Eliminar la regla «${r.task}»?`)) { state.rules.splice(i, 1); setDirty(true); renderRules(); } }}, "Eliminar")),
+      el("button", {class: "btn danger", onclick: async () => {
+        if (!(await ask({title: `Eliminar la regla «${r.task || "sin nombre"}»`, text: "Se quita de la lista; el cambio se aplica al pulsar Guardar.", ok: "Eliminar", danger: true}))) return;
+        state.rules.splice(i, 1); setDirty(true); renderRules();
+      }}, "Eliminar")),
     field(FIELDS.find(f => f[0] === "title"), "Títulos: una expresión regular por línea, p. ej. (?i)\\bPROJ-42\\b"),
     advanced(),
     preview);
@@ -777,7 +853,7 @@ async function runPreview(r, box) {
         el("td", {class: "num"}, hm(x.seconds)), el("td", {}, x.process),
         el("td", {class: "ellipsis", title: x.topic ? `${x.title}\nTema: ${x.topic}` : x.title},
           x.topic ? [el("b", {}, x.topic), el("span", {class: "muted"}, `  · ${x.title}`)] : (x.title || "(sin título)")),
-        el("td", {}, el("span", {class: "pill" + (x.current_task === UNCL ? " warn" : "")}, `ahora: ${x.current_task}`)))))));
+        el("td", {style: "white-space:nowrap"}, el("span", {class: "hint"}, "ahora "), chip(x.current_task)))))));
   } catch (e) { box.replaceChildren(el("span", {style: "color:var(--danger)"}, e.message)); }
 }
 
@@ -787,36 +863,36 @@ function stripRule(r) {
   return o;
 }
 
-function newRuleFrom(title, topic) {
+async function newRuleFrom(title, topic) {
   // Con tema (correo), la regla va sobre el asunto; si no, sobre la primera parte del título.
   const words = (title || "").split(/\s+[-–|·]\s+/)[0].trim();
   const rule = {task: "", _dirty: true, _autopreview: true};
   if (topic) rule.topic = ["(?i)" + escapeRegex(topic)];
   else if (words) rule.title = ["(?i)" + escapeRegex(words)];
   // Las reglas que se crean desde una actividad son de tareas.
-  if (state.kind !== "tasks" && state.dirty && !confirm("Hay cambios sin guardar en los tipos de aplicación. ¿Descartarlos?")) return;
+  if (state.kind !== "tasks" && state.dirty && !(await confirmDiscard())) return;
   const reload = state.kind !== "tasks" || !state.dirty;
   state.kind = "tasks";
-  switchTab("rules", false);   // sin recarga automática: pisaría la regla recién insertada
+  await switchTab("rules", false);   // sin recarga automática: pisaría la regla recién insertada
   const insert = () => { state.rules.unshift(rule); setDirty(true); renderRules(); $("#rules input").focus(); };
   if (reload) loadRules(true).then(insert).catch(showError); else { renderRules(); insert(); }
 }
 
-$("#rules-kind").onchange = e => {
-  if (state.dirty && !confirm("Hay cambios sin guardar. ¿Descartarlos?")) { e.target.value = state.kind; return; }
+$("#rules-kind").onchange = async e => {
+  if (state.dirty && !(await confirmDiscard())) { e.target.value = state.kind; return; }
   state.kind = e.target.value;
   loadRules(true).catch(showError);
 };
 
 $("#rule-add").onclick = () => { state.rules.unshift({task: "", _dirty: true}); setDirty(true); renderRules(); $("#rules input").focus(); };
-$("#rules-reload").onclick = () => { if (!state.dirty || confirm("¿Descartar los cambios sin guardar?")) loadRules(true).catch(showError); };
+$("#rules-reload").onclick = async () => { if (!state.dirty || await confirmDiscard()) loadRules(true).catch(showError); };
 $("#rules-save").onclick = async () => {
   try {
     await api("/api/rules", {method: "PUT", body: JSON.stringify({kind: state.kind, rules: state.rules.map(stripRule)})});
     await loadRules(true);
-    msg(state.kind === "categories" ? "Tipos guardados. Se aplican a todo el histórico."
-                                    : "Reglas guardadas. Se aplican ya al registro y a todo el histórico.", true);
-  } catch (e) { msg(e.message, false); }
+    toast(state.kind === "categories" ? "Tipos guardados. Se aplican a todo el histórico."
+                                      : "Reglas guardadas. Se aplican ya al registro y a todo el histórico.", true);
+  } catch (e) { toast(e.message); }
 };
 window.addEventListener("beforeunload", e => { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
 
