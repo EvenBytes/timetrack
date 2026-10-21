@@ -13,6 +13,7 @@ from .browser import BrowserUrls, domain
 from .capture import WindowCapturer, visual_change
 from .config import Config
 from .ocr import WindowsOcr
+from .presence import media_in_use
 from .privacy import PrivacyFilter
 from .rules import RuleSet
 from .store import AWAY, Activity, Store
@@ -32,6 +33,8 @@ _TRANSIENT_CLASSES = {"Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOver
 _FLUSH_EVERY_S = 5.0
 # La URL se relee al cambiar de ventana o de título y, si no, cada tanto (webs de una página).
 _URL_EVERY_S = 3.0
+# El registro del micrófono y la cámara solo se mira cuando ya hay un rato sin teclado ni ratón.
+_MEDIA_CHECK_AFTER_S = 30.0
 
 
 @dataclass
@@ -67,6 +70,7 @@ class Tracker:
         self._urls: BrowserUrls | None = None
         self._url_cache: tuple[int, str, float, str] = (0, "", 0.0, "")   # hwnd, título, ts, url
         self._activity: Activity | None = None
+        self._media_ts = 0.0   # último instante con el micrófono o la cámara en uso
 
     # --- control -------------------------------------------------------------------------
 
@@ -136,7 +140,7 @@ class Tracker:
             self.store.close()
 
     def _tick(self, now: float) -> None:
-        idle_s = win32.seconds_since_last_input()
+        idle_s = self._idle_seconds(now)
         fg = win32.get_foreground_window()
         locked = fg is None or fg.process.lower() in _LOCK_PROCESSES
 
@@ -156,6 +160,23 @@ class Tracker:
         self._switch_to((fg.process, clean_title(fg.title), domain(url)), fg.exe_path, now, url)
         self._maybe_flush(now)
         self._maybe_ocr(fg, now)
+
+    def _idle_seconds(self, now: float) -> float:
+        """Tiempo sin teclado ni ratón; una llamada (micrófono o cámara en uso) cuenta como
+        actividad, así que una reunión en la que no se toca nada no pasa a ausente."""
+        idle_s = win32.seconds_since_last_input()
+        if not self.s.media_keeps_present or idle_s < _MEDIA_CHECK_AFTER_S:
+            return idle_s
+        try:
+            if media_in_use():
+                if now - self._media_ts > 60:
+                    log.info("  Micrófono o cámara en uso: se mantiene como presente")
+                self._media_ts = now
+        except Exception:
+            log.exception("No se pudo comprobar el uso del micrófono o la cámara")
+        # Al colgar, la ausencia empieza a contar desde el final de la llamada, no desde la
+        # última tecla pulsada.
+        return min(idle_s, now - self._media_ts)
 
     def _close_activity(self, ts: float) -> None:
         if self._activity:

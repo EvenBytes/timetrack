@@ -36,6 +36,7 @@ class Settings:
     ocr_after_switch_s: float = 2.0
     change_threshold: float = 3.0
     idle_threshold_s: float = 300.0
+    media_keeps_present: bool = True   # micrófono o cámara en uso = presente (llamadas)
     ocr_language: str = ""
     db_path: str = "data/timesheet.db"
 

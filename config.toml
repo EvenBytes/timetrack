@@ -4,6 +4,7 @@ ocr_interval_s = 15        # mínimo entre dos OCR de la misma ventana
 ocr_after_switch_s = 2     # espera tras cambiar de ventana antes del primer OCR
 change_threshold = 3.0     # diferencia visual mínima (0-255) para repetir el OCR
 idle_threshold_s = 300     # sin teclado/ratón durante este tiempo = ausente
+media_keeps_present = true # con el micrófono o la cámara en uso (una llamada) no se está ausente
 ocr_language = ""          # "" = idiomas del perfil de Windows; p. ej. "es-ES" o "en-US"
 db_path = "data/timesheet.db"
 

@@ -38,7 +38,8 @@ timetrack **se ejecuta solo en local y no envía datos a ningún sitio**.
 - **Sin red.** No hay servidor, cuenta, nube ni telemetría. El código no hace conexiones
   salientes. El OCR usa el motor integrado de Windows (`Windows.Media.Ocr`), que trabaja sin
   conexión, y la URL de los navegadores se lee de la propia ventana con UI Automation, sin
-  extensiones.
+  extensiones. Del micrófono y la cámara solo se consulta *si están en uso*; nunca se graba
+  ni se escucha nada.
 - **Panel solo local.** El panel web escucha únicamente en `127.0.0.1`, así que no es accesible
   desde otros equipos de la red. Además exige la cabecera `Host` local, lo que evita ataques de
   *DNS rebinding*, y solo acepta escrituras en JSON, lo que impide que otra web las provoque
@@ -92,7 +93,10 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
 
 - Cada **1 s** mira la ventana activa (proceso + título) y la inactividad de teclado/ratón.
   Un cambio de ventana o de título abre una actividad nueva; 5 min sin entrada o la sesión
-  bloqueada cuentan como *ausente*.
+  bloqueada cuentan como *ausente*. Mientras alguna aplicación usa el **micrófono o la cámara**
+  (una reunión de Meet, Teams, Zoom…) no se pasa a ausente aunque no se toque nada; lo indica el
+  mismo registro de Windows que enciende el icono de privacidad de la barra de tareas
+  (`media_keeps_present` en `config.toml`).
 - Como mucho cada **15 s** captura la ventana activa y, si la imagen cambió, extrae su texto
   con `Windows.Media.Ocr` (local, sin red). El primer OCR se hace 2 s después de cambiar de
   ventana. Solo se guarda el texto, enmascarado (emails, IBAN, números largos, contraseñas);

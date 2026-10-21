@@ -88,6 +88,15 @@
   .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px;
           background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
   .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  /* Chip de tarea o tipo: punto de color y nombre en una sola pieza que no se parte en dos. */
+  .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+          padding: 2px 9px 2px 7px; border-radius: 999px; font-size: 12.5px; line-height: 18px;
+          white-space: nowrap; vertical-align: middle; color: var(--text);
+          background: color-mix(in srgb, var(--c) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--c) 32%, transparent); }
+  .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c);
+                  flex: none; }
+  .chip > span { overflow: hidden; text-overflow: ellipsis; }
   .rule { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
           background: var(--panel); }
   .rule.dirty { border-color: var(--accent); }
@@ -110,7 +119,9 @@
         overflow: auto; }
   .empty { color: var(--muted); padding: 24px; text-align: center; }
   .hidden { display: none !important; }
-  .ellipsis { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* La columna de título ocupa el hueco que dejan las demás y recorta con «…» (max-width: 0
+     evita que su contenido ensanche la tabla más allá de la tarjeta). */
+  td.ellipsis { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -253,6 +264,9 @@ function el(tag, attrs = {}, ...kids) {
   for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(k));
   return e;
 }
+function chip(name) {
+  return el("span", {class: "chip", style: `--c:${color(name)}`, title: name}, el("span", {}, name));
+}
 function color(task) {
   if (task === AWAY) return "var(--away)";
   if (task === UNCL) return "#f79009";
@@ -341,15 +355,24 @@ function renderTimeline(d) {
   const box = $("#timeline");
   if (!d.activities.length) return box.replaceChildren(el("div", {class: "empty"}, "No hay actividad registrada este día."));
   const dayStart = new Date(d.date + "T00:00:00").getTime() / 1000;
-  const first = Math.min(...d.activities.map(a => a.start)), last = Math.max(...d.activities.map(a => a.end));
-  const h0 = Math.max(0, Math.min(8, Math.floor((first - dayStart) / 3600)));
-  const h1 = Math.min(24, Math.max(18, Math.ceil((last - dayStart) / 3600)));
-  const t0 = dayStart + h0 * 3600, span = (h1 - h0) * 3600;
-  const pos = (s, e) => `left:${100 * (s - t0) / span}%;width:${Math.max(0.05, 100 * (e - s) / span)}%`;
+  // El eje va de 30 min antes de la primera actividad a 30 min después de la última, sin
+  // contar las ausencias (la de la noche anterior llega hasta la primera actividad del día).
+  const worked = d.activities.filter(a => a.task !== AWAY);
+  const ref = worked.length ? worked : d.activities;
+  const first = Math.min(...ref.map(a => a.start)), last = Math.max(...ref.map(a => a.end));
+  const MARGIN = 30 * 60;
+  const t0 = Math.max(dayStart, first - MARGIN);
+  const t1 = Math.min(dayStart + 86400, Math.max(last + MARGIN, t0 + 3600));
+  const span = t1 - t0;
+  const pos = (s, e) => {
+    s = Math.max(s, t0); e = Math.min(e, t1);
+    return `left:${100 * (s - t0) / span}%;width:${Math.max(0.05, 100 * Math.max(0, e - s) / span)}%`;
+  };
 
   const blockTrack = blocks => {
     const track = el("div", {class: "tl-track"});
     for (const b of blocks) {
+      if (b.end <= t0 || b.start >= t1) continue;
       const apps = b.apps.slice(0, 3).map(([p, s]) => `${p} ${hm(s)}`).join(", ");
       track.append(el("div", {class: "seg", style: `${pos(b.start, b.end)};background:${color(b.task)}`,
         onmousemove: ev => showTip(ev, [b.task, `${clock(b.start)} – ${clock(b.end)} (${hm(b.end - b.start)})`, apps]),
@@ -365,8 +388,9 @@ function renderTimeline(d) {
       onmouseleave: hideTip, onclick: () => openActivity(a)}));
   }
   const axis = el("div", {class: "axis"});
-  for (let h = h0; h <= h1; h += (h1 - h0 > 12 ? 2 : 1))
-    axis.append(el("span", {style: `left:${100 * (h - h0) / (h1 - h0)}%`}, `${h}:00`));
+  const step = span > 12 * 3600 ? 2 : 1;
+  for (let h = Math.ceil((t0 - dayStart) / 3600); dayStart + h * 3600 <= t1; h += step)
+    axis.append(el("span", {style: `left:${100 * (dayStart + h * 3600 - t0) / span}%`}, `${h}:00`));
   box.replaceChildren(
     el("div", {class: "tl-row"}, el("span", {class: "muted"}, "Tareas"), blockTrack(d.blocks)),
     el("div", {class: "tl-row"}, el("span", {class: "muted"}, "Tipos"), blockTrack(d.category_blocks)),
@@ -382,7 +406,7 @@ function renderTotals(d) {
     el("thead", {}, el("tr", {}, el("th", {}, "Tarea"), el("th", {class: "num"}, "Tiempo"),
       el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Tipos de aplicación"), el("th", {}, "Aplicaciones principales"))),
     el("tbody", {}, d.totals.map(t => el("tr", {},
-      el("td", {}, el("span", {class: "swatch", style: `background:${color(t.task)}`}), t.task),
+      el("td", {}, chip(t.task)),
       el("td", {class: "num"}, hm(t.seconds)),
       el("td", {class: "num"}, d.worked ? `${(100 * t.seconds / d.worked).toFixed(0)} %` : ""),
       el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * t.seconds / max}%;background:${color(t.task)}`}))),
@@ -408,7 +432,7 @@ function renderCategories(d) {
     el("thead", {}, el("tr", {}, el("th", {}, "Tipo"), el("th", {class: "num"}, "Tiempo"),
       el("th", {class: "num"}, "%"), el("th", {}, ""), el("th", {}, "Reparto por tarea"), el("th", {}, "Aplicaciones principales"))),
     el("tbody", {}, d.categories.map(c => el("tr", {},
-      el("td", {}, el("span", {class: "swatch", style: `background:${color(c.category)}`}), c.category),
+      el("td", {}, chip(c.category)),
       el("td", {class: "num"}, hm(c.seconds)),
       el("td", {class: "num"}, d.worked ? `${(100 * c.seconds / d.worked).toFixed(0)} %` : ""),
       el("td", {style: "width:18%"}, el("div", {class: "meter"}, el("div", {style: `width:${100 * c.seconds / max}%;background:${color(c.category)}`}))),
@@ -430,8 +454,8 @@ function renderActivities(d) {
       el("td", {class: "ellipsis", title: a.topic ? `${a.title}\nTema: ${a.topic}` : a.title},
         a.topic ? [el("b", {}, a.topic), el("span", {class: "muted"}, `  · ${a.title}`)] : (a.title || "(sin título)"),
         a.has_ocr ? "" : el("span", {class: "muted"}, "  · sin OCR")),
-      el("td", {}, el("span", {class: "swatch", style: `background:${color(a.category)}`}), a.category),
-      el("td", {}, el("span", {class: "pill" + (a.unclassified ? " warn" : "")}, a.task)))))));
+      el("td", {}, chip(a.category)),
+      el("td", {}, chip(a.task)))))));
 }
 
 async function openActivity(a) {
@@ -467,7 +491,7 @@ async function loadWeek() {
       el("th", {class: "num", style: "cursor:pointer", title: "Ver el día", onclick: () => { state.tab = "day"; switchTab("day"); setDate(w.days[i]); }}, n)),
       el("th", {class: "num"}, "Total"))),
     el("tbody", {}, w.tasks.map(t => el("tr", {},
-      el("td", {}, el("span", {class: "swatch", style: `background:${color(t.task)}`}), t.task),
+      el("td", {}, chip(t.task)),
       t.days.map(s => el("td", {class: "num" + (s ? "" : " muted")}, s ? hm(s) : "·")),
       el("td", {class: "num", style: "font-weight:600"}, hm(t.total)))),
       el("tr", {}, el("td", {style: "font-weight:600"}, "Total"),
