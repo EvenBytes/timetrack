@@ -66,7 +66,8 @@ timetrack **se ejecuta solo en local y no envía datos a ningún sitio**.
    `http://127.0.0.1:8765`.
 3. Menú del icono (clic derecho):
    - **Abrir panel**
-   - **En pausa**: deja de registrar (el icono se vuelve naranja).
+   - **⏸ Pausar** / **▶ Reanudar**: deja de registrar o vuelve a hacerlo (en pausa el icono se
+     vuelve naranja). El panel tiene el mismo botón arriba a la derecha.
    - **Iniciar con Windows**: arranque automático al iniciar sesión.
    - **Salir**
 

@@ -56,8 +56,8 @@ def run_app(cfg: Config) -> int:
         "timetrack", _icon_image(paused=False), "timetrack",
         menu=pystray.Menu(
             pystray.MenuItem("Abrir panel", on_open, default=True),
-            pystray.MenuItem("En pausa", on_toggle_pause,
-                             checked=lambda item: tracker.status().paused),
+            pystray.MenuItem(lambda item: "▶  Reanudar" if tracker.status().paused
+                             else "⏸  Pausar", on_toggle_pause),
             pystray.MenuItem("Iniciar con Windows", on_toggle_autostart,
                              checked=lambda item: autostart_enabled()),
             pystray.Menu.SEPARATOR,

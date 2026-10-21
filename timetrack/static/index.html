@@ -45,6 +45,8 @@
   button.btn { border: 1px solid var(--line); background: var(--panel); color: var(--text);
                padding: 6px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
   button.btn:hover { border-color: var(--accent); }
+  button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
+  button.icon-btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button.danger { color: var(--danger); }
   button:disabled { opacity: .5; cursor: default; }
@@ -123,7 +125,7 @@
     </nav>
     <div class="spacer"></div>
     <div class="status"><span class="dot" id="st-dot"></span><span id="st-text">…</span></div>
-    <button class="btn" id="st-toggle">Pausar</button>
+    <button class="btn icon-btn" id="st-toggle"><svg viewBox="0 0 16 16" aria-hidden="true"></svg><span>Pausar</span></button>
   </div>
 </header>
 
@@ -273,6 +275,8 @@ function moveTip(ev) { tip.style.left = Math.min(ev.clientX + 14, innerWidth - 3
 function hideTip() { tip.style.display = "none"; }
 
 // ---------- estado del tracker ----------
+const ICON_PLAY = '<path d="M4 2.5v11a.5.5 0 0 0 .76.43l9-5.5a.5.5 0 0 0 0-.86l-9-5.5A.5.5 0 0 0 4 2.5z"/>';
+const ICON_PAUSE = '<rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/>';
 async function refreshStatus() {
   try {
     const s = state.status = await api("/api/status");
@@ -282,7 +286,8 @@ async function refreshStatus() {
       : s.paused ? "En pausa"
       : `${s.process || "–"} · ${s.task || ""}`;
     $("#st-text").title = s.title || "";
-    $("#st-toggle").textContent = s.paused ? "Reanudar" : "Pausar";
+    $("#st-toggle span").textContent = s.paused ? "Reanudar" : "Pausar";
+    $("#st-toggle svg").innerHTML = s.paused ? ICON_PLAY : ICON_PAUSE;
     $("#st-toggle").disabled = !s.running;
   } catch { $("#st-text").textContent = "Sin conexión con timetrack"; $("#st-dot").className = "dot"; }
 }
