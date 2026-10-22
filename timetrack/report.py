@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time as dtime, timedelta
 
 from .rules import AWAY_TASK, MEETING_CATEGORY, UNCLASSIFIED, RuleSet
-from .store import Activity, Store
+from .store import MEETING, Activity, Store
 
 # Dos bloques de la misma tarea separados por menos de esto se fusionan en la línea temporal.
 _MERGE_GAP_S = 120
@@ -58,14 +58,21 @@ def classified(store: Store, rules: RuleSet, day: date, end_day: date | None = N
     y, si se dan reglas de tipos, su tipo de aplicación en act.category."""
     start_ts = day_bounds(day)[0]
     end_ts = day_bounds(end_day or day)[1]
-    items = [(a, rules.classify(a)) for a in store.activities_between(start_ts, end_ts)
-             if a.duration > 0]
+    acts = [a for a in store.activities_between(start_ts, end_ts) if a.duration > 0]
+    # Ausencias que el usuario confirmó como una reunión: pasan a ser esa reunión, con su
+    # título, y se clasifican con las mismas reglas que el resto.
+    answers = store.away_answers([a.id for a in acts if a.is_away])
+    for act in acts:
+        if answers.get(act.id):
+            act.process, act.exe_path, act.url = MEETING, "", ""
+            act.title, act.topic = answers[act.id], ""
+    items = [(a, rules.classify(a)) for a in acts]
     if categories:
         for act, _ in items:
             # Con el micrófono o la cámara en uso se está en una llamada, sea cual sea la ventana
             # (el chat de Teams, el documento que se comparte…).
-            act.category = (MEETING_CATEGORY if act.in_call and not act.is_away
-                            else categories.classify(act))
+            act.category = (MEETING_CATEGORY if (act.in_call and not act.is_away)
+                            or act.process == MEETING else categories.classify(act))
     return items
 
 

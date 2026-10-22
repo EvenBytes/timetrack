@@ -54,6 +54,7 @@ class Config:
     rules: list[dict]
     ui: UiSettings = field(default_factory=UiSettings)
     topic: dict = field(default_factory=dict)
+    calendar: dict = field(default_factory=dict)
     rules_path: Path = ROOT / "rules.toml"
     # Tipos de aplicación (Correo, Chats, Documentos…): clasificación paralela a las tareas.
     categories_path: Path = ROOT / "categories.toml"
@@ -81,6 +82,7 @@ def load_config(config_path: Path | None = None, rules_path: Path | None = None)
         rules=load_rules(rules_path),
         ui=UiSettings(**raw.get("ui", {})),
         topic=raw.get("topic", {}),
+        calendar=raw.get("calendar", {}),
         rules_path=rules_path,
         categories_path=rules_path.parent / "categories.toml",
         projects_path=rules_path.parent / "projects.toml",

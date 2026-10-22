@@ -66,6 +66,12 @@ def run_app(cfg: Config) -> int:
             pystray.MenuItem("Salir", on_quit),
         ))
 
+    def on_return_from_away(minutes: int, meetings: int):
+        icon.notify(f"Has estado ausente {minutes} min. ¿Estuviste en alguna de las {meetings} "
+                    "reuniones de hoy? Elígela en el panel, pestaña Día.", "timetrack")
+
+    tracker.on_return_from_away = on_return_from_away
+
     def refresh_tooltip():
         # Actualiza el texto al pasar el ratón por el icono con la actividad en curso.
         while not tracker._stop.wait(10):

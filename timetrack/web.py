@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import threading
+import time
 from dataclasses import asdict
 from datetime import date, timedelta
 from http import HTTPStatus
@@ -21,6 +22,7 @@ from .config import RULE_FIELDS, Config, load_rules, save_rules
 from .projects import (NO_CLIENT, Project, Projects, generated_rule, insert_rule,
                        load_projects, save_projects, sync_rule, validate)
 from .rules import OTHER_CATEGORY, RuleSet, UNCLASSIFIED
+from .calendar import CalendarReader
 from .store import Store
 
 log = logging.getLogger("timetrack.web")
@@ -179,6 +181,42 @@ class _Handler(BaseHTTPRequestHandler):
         if self.ctx.tracker:
             self.ctx.tracker.resume()
         self.get_api_status(q)
+
+    def get_api_meetings(self, q):
+        """Reuniones del calendario del día y ausencias largas por las que preguntar."""
+        day = _date(q)
+        items = self.ctx.items(day)
+        ask_after = CalendarReader(self.ctx.cfg.calendar).ask_after_s
+        store = Store(self.ctx.cfg.db_path)
+        try:
+            events = store.calendar_titles(day.isoformat())
+            ids = [a.id for a, _ in items if a.is_away or a.process == "(reunión)"]
+            answers = store.away_answers(ids)
+        finally:
+            store.close()
+        first_work = next((a.start_ts for a, _ in items if not a.is_away), None)
+        absences = []
+        for act, task in items:
+            answered = act.id in answers
+            if not (act.is_away or answered) or first_work is None or act.start_ts < first_work:
+                continue   # la ausencia de la noche, antes de empezar, no cuenta
+            if act.duration < ask_after and not answered:
+                continue
+            absences.append({"id": act.id, "start": act.start_ts, "end": act.end_ts,
+                             "answer": answers.get(act.id), "task": task})
+        self._json({"events": events, "absences": absences})
+
+    def post_api_meetings_answer(self, q):
+        body = self._body()
+        choice = body.get("choice")
+        if choice is not None:
+            choice = str(choice).strip()[:120]
+        store = Store(self.ctx.cfg.db_path)
+        try:
+            store.set_away_answer(int(body["id"]), choice, time.time())
+        finally:
+            store.close()
+        self._json({"ok": True})
 
     def get_api_autostart(self, q):
         from .autostart import autostart_enabled

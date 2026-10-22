@@ -207,6 +207,12 @@
       <div class="kpi"><div class="v" id="k-uncl">–</div><div class="l">Sin clasificar</div></div>
       <div class="kpi"><div class="v" id="k-span">–</div><div class="l">Primera y última actividad</div></div>
     </div>
+    <div class="card hidden" id="meetings-card">
+      <div class="card-head"><h2>¿Estuviste en una reunión?</h2>
+        <span class="hint">Ausencias largas de hoy y las reuniones de tu calendario. Si eliges una,
+          ese tiempo cuenta como la reunión.</span></div>
+      <div id="meetings"></div>
+    </div>
     <div class="card">
       <h2>Línea temporal</h2>
       <div id="timeline"></div>
@@ -510,6 +516,36 @@ async function loadDay() {
   renderCategories(d);
   state.day = d;
   renderActivities(d);
+  loadMeetings().catch(showError);
+}
+
+// Ausencias largas: el usuario dice si estuvo en una de las reuniones del calendario de hoy.
+async function loadMeetings() {
+  const m = await api(`/api/meetings?date=${state.date}`);
+  const card = $("#meetings-card");
+  const relevant = m.absences.filter(a => a.answer !== undefined && a.answer !== null || m.events.length);
+  card.classList.toggle("hidden", !relevant.length);
+  if (!relevant.length) return;
+  const answer = async (id, choice) => {
+    try { await post("/api/meetings/answer", {id, choice}); } catch (e) { return toast(e.message); }
+    loadDay().catch(showError);
+  };
+  $("#meetings").replaceChildren(el("table", {}, el("tbody", {}, relevant.map(a => {
+    const when = `${clock(a.start)} – ${clock(a.end)}`;
+    const answered = a.answer !== undefined && a.answer !== null;
+    return el("tr", {},
+      el("td", {class: "num", style: "width:1%"}, when),
+      el("td", {class: "num", style: "width:1%"}, hm(a.end - a.start)),
+      answered
+        ? el("td", {}, a.answer ? [el("span", {class: "hint"}, "Reunión "), chip(a.answer),
+                                   el("span", {class: "hint"}, " → "), chip(a.task)]
+                                : el("span", {class: "hint"}, "Ninguna: cuenta como ausente"))
+        : el("td", {}, el("div", {class: "actions", style: "flex-wrap:wrap"},
+            ...m.events.map(t => el("button", {class: "btn", title: t, onclick: () => answer(a.id, t)}, t)),
+            el("button", {class: "btn", onclick: () => answer(a.id, "")}, "Ninguna"))),
+      el("td", {class: "num", style: "width:1%"}, answered
+        ? el("button", {class: "btn", onclick: () => answer(a.id, null)}, "Cambiar") : ""));
+  }))));
 }
 
 function renderTimeline(d) {

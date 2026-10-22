@@ -8,6 +8,8 @@ from pathlib import Path
 from .titles import clean_title
 
 AWAY = "(ausente)"
+# Ausencia que el usuario confirmó como una reunión del calendario (presencial, sin ordenador).
+MEETING = "(reunión)"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS activities (
@@ -22,6 +24,21 @@ CREATE TABLE IF NOT EXISTS activities (
     in_call   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS ix_activities_start ON activities(start_ts);
+
+-- Títulos de las reuniones de cada día, leídos de la vista de calendario.
+CREATE TABLE IF NOT EXISTS calendar_events (
+    day       TEXT NOT NULL,
+    title     TEXT NOT NULL,
+    seen_ts   REAL NOT NULL,
+    PRIMARY KEY (day, title)
+);
+
+-- Respuesta a «¿estuviste en una reunión?» para una ausencia: el título elegido, o '' si no.
+CREATE TABLE IF NOT EXISTS away_answers (
+    activity_id INTEGER PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
+    choice      TEXT NOT NULL,
+    answered_ts REAL NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS ocr_samples (
     id          INTEGER PRIMARY KEY,
@@ -114,6 +131,37 @@ class Store:
             act.end_ts = min(act.end_ts, end_ts)
             act.title = clean_title(act.title)   # el histórico anterior a la limpieza también
         return acts
+
+    # --- reuniones del calendario -------------------------------------------------------
+
+    def calendar_titles(self, day: str) -> list[str]:
+        return [t for (t,) in self._db.execute(
+            "SELECT title FROM calendar_events WHERE day=? ORDER BY seen_ts, rowid", (day,))]
+
+    def save_calendar_titles(self, day: str, titles: list[str], ts: float) -> None:
+        self._db.execute("DELETE FROM calendar_events WHERE day=?", (day,))
+        self._db.executemany(
+            "INSERT OR IGNORE INTO calendar_events(day, title, seen_ts) VALUES (?,?,?)",
+            [(day, t, ts + i * 1e-3) for i, t in enumerate(titles)])
+        self._db.commit()
+
+    def away_answers(self, activity_ids: list[int]) -> dict[int, str]:
+        if not activity_ids:
+            return {}
+        marks = ",".join("?" * len(activity_ids))
+        return dict(self._db.execute(
+            f"SELECT activity_id, choice FROM away_answers WHERE activity_id IN ({marks})",
+            activity_ids))
+
+    def set_away_answer(self, activity_id: int, choice: str | None, ts: float) -> None:
+        """choice: título de la reunión, '' si no estuvo en ninguna, None para deshacer."""
+        if choice is None:
+            self._db.execute("DELETE FROM away_answers WHERE activity_id=?", (activity_id,))
+        else:
+            self._db.execute(
+                "INSERT OR REPLACE INTO away_answers(activity_id, choice, answered_ts) "
+                "VALUES (?,?,?)", (activity_id, choice, ts))
+        self._db.commit()
 
     def ocr_samples(self, activity_id: int) -> list[tuple[float, str]]:
         return self._db.execute(

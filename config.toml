@@ -45,3 +45,23 @@ area = [0.12, 0.10, 1.0, 0.60]
 # ahí y no del OCR. Las bandejas y carpetas no son un asunto.
 title_topic = '^(?P<topic>.+?) - [^\s@]+@[^\s@]+ - .*\b(Gmail|Mail)$'
 title_skip = '(?i)^(inbox|recibidos|bandeja de entrada|starred|destacados|snoozed|pospuestos|important|importantes|sent( mail)?|enviados|drafts|borradores|scheduled|programados|all mail|todos|spam|trash|bin|papelera|search results|resultados de (la )?b[uú]squeda|chat|spaces|espacios|meet|home|inicio)\b'
+
+[calendar]
+# Reuniones de hoy, leídas de la vista de calendario (semana o día). Al volver de una ausencia de
+# ask_after_min minutos o más se pregunta si se estuvo en alguna de ellas (reuniones presenciales
+# o sin ordenador). Solo se guardan los títulos; no se calcula ninguna hora.
+ask_after_min = 20
+# Eventos que no son reuniones: no se proponen.
+ignore = '(?i)^(lunch|comida|almuerzo|blocked|bloqueado|focus|.*meeting-free|friday afternoon|out of office|fuera de la oficina|ooo\b|vacaciones|holiday|festivo|office$)'
+
+[[calendar.apps]]
+name = "Outlook"
+url = '^outlook\.(cloud\.microsoft|office\.com|office365\.com|live\.com)/calendar'
+title = '(?i)^(calendar|calendario) - .* - outlook$'
+header_align = "left"      # el nombre del día va a la izquierda de su columna
+
+[[calendar.apps]]
+name = "Google Calendar"
+url = '^calendar\.google\.com'
+title = '(?i)\bgoogle calendar\b'
+header_align = "center"    # el nombre del día va centrado sobre su columna

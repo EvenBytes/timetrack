@@ -6,10 +6,12 @@ Puede ejecutarse en primer plano (consola) o en un hilo, controlado con pause()/
 import logging
 import threading
 import time
+from datetime import date
 from dataclasses import dataclass
 
 from . import win32
 from .browser import BrowserUrls, domain
+from .calendar import CalendarReader, merge_titles
 from .capture import WindowCapturer, visual_change
 from .config import Config
 from .ocr import WindowsOcr
@@ -59,6 +61,10 @@ class Tracker:
         self.privacy = PrivacyFilter(cfg.privacy)
         self.rules = RuleSet(cfg.rules)
         self.topics = TopicExtractor(cfg.topic)
+        self.calendar = CalendarReader(cfg.calendar)
+        # Avisa al volver de una ausencia larga si hay reuniones hoy: f(minutos, reuniones).
+        self.on_return_from_away = None
+        self._last_work_day: date | None = None
         self._stop = threading.Event()
         self._paused = threading.Event()
         self._running = False
@@ -229,6 +235,10 @@ class Tracker:
             ts = max(ts, self._activity.start_ts)   # nunca solapar con la actividad anterior
             self._activity.end_ts = ts
             self.store.extend_activity(self._activity.id, ts)
+            if self._key == _AWAY_KEY and key != _AWAY_KEY:
+                self._maybe_ask_meeting(self._activity)
+        if key != _AWAY_KEY:
+            self._last_work_day = date.fromtimestamp(ts)
         process, title, _, in_call = key
         topic = self._title_topic(process, title, url)
         activity_id = self.store.start_activity(ts, process, exe_path, title, topic, url, in_call)
@@ -241,6 +251,39 @@ class Tracker:
                  f" [{key[2]}]" if key[2] else "", f" «{topic[:60]}»" if topic else "",
                  " (llamada)" if in_call else "",
                  self.rules.classify(self._activity))
+
+    def _maybe_ask_meeting(self, away: Activity) -> None:
+        """Al volver de una ausencia larga, si hoy hay reuniones en el calendario, avisa para
+        que el usuario diga en el panel si estuvo en alguna. La ausencia de antes de empezar la
+        jornada (la noche) no cuenta."""
+        day = date.fromtimestamp(away.end_ts)
+        if (away.duration < self.calendar.ask_after_s or self._last_work_day != day
+                or not self.on_return_from_away):
+            return
+        titles = self.store.calendar_titles(day.isoformat())
+        if titles:
+            log.info("Vuelta tras %d min de ausencia; %d reuniones hoy en el calendario",
+                     away.duration // 60, len(titles))
+            try:
+                self.on_return_from_away(round(away.duration / 60), len(titles))
+            except Exception:
+                log.exception("No se pudo avisar de la vuelta de la ausencia")
+
+    def _read_calendar(self, fg, capture) -> None:
+        """En una vista de calendario, guarda los títulos de las reuniones de hoy."""
+        app = self.calendar.app_for(fg.title, self._activity.url)
+        if not app:
+            return
+        lines = self.ocr.recognize_lines(capture, scale=2, split_gap=0.9)
+        today = date.today()
+        seen = [t for t in (self.privacy.clean(t) for t in self.calendar.today_events(app, lines, today)) if t]
+        if not seen:
+            return
+        known = self.store.calendar_titles(today.isoformat())
+        merged = merge_titles(known, seen)
+        if merged != known:
+            self.store.save_calendar_titles(today.isoformat(), merged, time.time())
+            log.info("  Calendario (%s): %d reuniones hoy", app.name, len(merged))
 
     def _title_topic(self, process: str, title: str, url: str) -> str:
         """Tema de las apps que lo ponen en el título (Gmail); el resto lo saca el OCR."""
@@ -277,6 +320,10 @@ class Tracker:
             log.exception("Fallo al capturar o reconocer la ventana")
             return
         text = self.privacy.clean("\n".join(ln.text for ln in lines).strip())
+        try:
+            self._read_calendar(fg, capture)
+        except Exception:
+            log.exception("No se pudo leer el calendario")
 
         app = self.topics.app_for(fg.title, self._activity.url)
         if app and not app.title_topic:
