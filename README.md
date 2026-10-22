@@ -44,6 +44,8 @@ timetrack **se ejecuta solo en local y no envía datos a ningún sitio**.
   desde otros equipos de la red. Además exige la cabecera `Host` local, lo que evita ataques de
   *DNS rebinding*, y solo acepta escrituras en JSON, lo que impide que otra web las provoque
   desde el navegador.
+- **Calendario.** De las reuniones solo se guarda el título: sin horas, asistentes ni
+  descripción.
 - **Sin capturas guardadas.** Las imágenes de pantalla se procesan en memoria y se descartan. Solo
   se guarda el texto reconocido.
 - **Datos sensibles enmascarados.** Antes de guardar, el texto se limpia de emails, IBAN,
@@ -121,6 +123,12 @@ Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre e
   se lee por OCR: es la línea de letra más grande justo encima de los botones «Reply / Reply
   all» del panel de lectura (`anchor`), y sin esos botones en pantalla no hay correo abierto. Abrir otro correo parte la
   actividad, y las reglas pueden usar el campo `topic`.
+- **Reuniones sin ordenador.** Al pasar por la vista de calendario de Outlook o de Google
+  (semana o día) se leen por OCR los títulos de las reuniones de **hoy**; no se calcula ninguna
+  hora. Al volver de una ausencia de 20 min o más, una notificación pregunta si se estuvo en
+  alguna, y en el Día se elige cuál (o «Ninguna»). La ausencia pasa a ser esa reunión, de tipo
+  Reuniones, y su título pasa por las reglas como cualquier otro. Nunca cambia sola y se puede
+  deshacer (`[calendar]` en `config.toml`).
 - Todo va a `data\timesheet.db` (SQLite) en bruto. La clasificación se calcula al consultar,
   así que al cambiar una regla se reclasifica también el histórico.
 - El panel solo escucha en `127.0.0.1` y no es accesible desde otros equipos.
