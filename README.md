@@ -69,7 +69,8 @@ timetrack **se ejecuta solo en local y no envía datos a ningún sitio**.
    - **Abrir panel**
    - **⏸ Pausar** / **▶ Reanudar**: deja de registrar o vuelve a hacerlo (en pausa el icono se
      vuelve naranja). El panel tiene el mismo botón arriba a la derecha.
-   - **Iniciar con Windows**: arranque automático al iniciar sesión.
+   - **Iniciar con Windows**: arranque automático al iniciar sesión (también en la cabecera del
+     panel). Si se mueve la carpeta, la app corrige la ruta al arrancar.
    - **Salir**
 
 Si ya está en marcha y lo vuelves a abrir, no arranca una segunda copia: abre el panel.

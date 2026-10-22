@@ -180,6 +180,15 @@ class _Handler(BaseHTTPRequestHandler):
             self.ctx.tracker.resume()
         self.get_api_status(q)
 
+    def get_api_autostart(self, q):
+        from .autostart import autostart_enabled
+        self._json({"enabled": autostart_enabled()})
+
+    def post_api_autostart(self, q):
+        from .autostart import autostart_enabled, set_autostart
+        set_autostart(bool(self._body().get("enabled")))
+        self._json({"enabled": autostart_enabled()})
+
     def get_api_day(self, q):
         day = _date(q)
         items = self.ctx.items(day)

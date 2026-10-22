@@ -180,6 +180,8 @@
     </nav>
     <div class="spacer"></div>
     <div class="status"><span class="dot" id="st-dot"></span><span id="st-text">…</span></div>
+    <label class="check" title="Arranca timetrack al iniciar sesión en Windows (solo para tu usuario)">
+      <input type="checkbox" id="autostart">Iniciar con Windows</label>
     <button class="btn" id="st-toggle"><svg viewBox="0 0 16 16" aria-hidden="true"></svg><span>Pausar</span></button>
   </div>
 </header>
@@ -431,6 +433,16 @@ async function refreshStatus() {
     $("#st-toggle").disabled = !s.running;
   } catch { $("#st-text").textContent = "Sin conexión con timetrack"; $("#st-dot").className = "dot"; }
 }
+async function loadAutostart() {
+  try { $("#autostart").checked = (await api("/api/autostart")).enabled; } catch {}
+}
+$("#autostart").onchange = async e => {
+  try {
+    const r = await post("/api/autostart", {enabled: e.target.checked});
+    e.target.checked = r.enabled;
+    toast(r.enabled ? "timetrack arrancará al iniciar Windows." : "timetrack ya no arrancará al iniciar Windows.", true);
+  } catch (err) { e.target.checked = !e.target.checked; toast(err.message); }
+};
 $("#st-toggle").onclick = async () => {
   await post(state.status && state.status.paused ? "/api/resume" : "/api/pause");
   refreshStatus();
@@ -924,6 +936,7 @@ $("#date").value = state.date;
 const hash = location.hash.slice(1);
 if (["day", "week", "pending", "projects", "rules"].includes(hash)) switchTab(hash); else load();
 refreshStatus();
+loadAutostart();
 setInterval(refreshStatus, 5000);
 setInterval(() => { if (state.tab === "day" && state.date === today() && !document.hidden) loadDay().catch(() => {}); }, 60000);
 </script>

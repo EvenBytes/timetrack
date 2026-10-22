@@ -5,20 +5,18 @@ import socket
 import sys
 import threading
 import webbrowser
-import winreg
 from pathlib import Path
 
 import pystray
 from PIL import Image, ImageDraw
 
+from .autostart import autostart_enabled, refresh_autostart, set_autostart
 from .config import Config
 from .tracker import Tracker
 from .web import Panel
 
 log = logging.getLogger("timetrack")
 
-_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-_RUN_VALUE = "timetrack"
 
 
 def run_app(cfg: Config) -> int:
@@ -27,6 +25,10 @@ def run_app(cfg: Config) -> int:
         webbrowser.open(f"http://127.0.0.1:{cfg.ui.port}/")
         return 0
 
+    try:
+        refresh_autostart()
+    except OSError:
+        log.exception("No se pudo revisar el inicio con Windows")
     tracker = Tracker(cfg)
     tracker_thread = threading.Thread(target=tracker.run, name="tracker", daemon=True)
     tracker_thread.start()
@@ -103,35 +105,3 @@ def _icon_image(paused: bool) -> Image.Image:
 def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) == 0
-
-
-# --- arranque con Windows ----------------------------------------------------------------
-
-def _launch_command() -> str:
-    if getattr(sys, "frozen", False):
-        return f'"{sys.executable}"'
-    # En desarrollo: pythonw (sin consola) ejecutando el paquete desde la carpeta del proyecto.
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    root = Path(__file__).resolve().parent.parent
-    return f'cmd /c start "" /d "{root}" "{pythonw}" -m timetrack app'
-
-
-def autostart_enabled() -> bool:
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
-            winreg.QueryValueEx(key, _RUN_VALUE)
-            return True
-    except FileNotFoundError:
-        return False
-
-
-def set_autostart(enabled: bool) -> None:
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
-        if enabled:
-            winreg.SetValueEx(key, _RUN_VALUE, 0, winreg.REG_SZ, _launch_command())
-        else:
-            try:
-                winreg.DeleteValue(key, _RUN_VALUE)
-            except FileNotFoundError:
-                pass
-    log.info("Inicio con Windows %s", "activado" if enabled else "desactivado")
